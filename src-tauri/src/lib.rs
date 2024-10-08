@@ -22,7 +22,7 @@ macro_rules! unwrap_or_err {
     };
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 struct Song {
     name: String,
     path: String,
@@ -30,7 +30,13 @@ struct Song {
     author: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+impl Song{
+    fn new(name: String, path: String, album: Option<String>, author: Option<String>) -> Self{
+        Self { name, path, album, author }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Default)]
 struct SongDatabase {
     songs: HashMap<String, Song>,
 }
