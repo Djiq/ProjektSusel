@@ -81,15 +81,17 @@ impl SongDatabase {
             "Couldn't read data from boberplayer music index file!"
         );
 
-        db.songs = unwrap_or_err!(
-            serde_json::from_str(&data),
-            "Couldn't deserialize boberplayer music index file!"
-        );
+        if data.len() != 0{
+            db.songs = unwrap_or_err!(
+                serde_json::from_str(&data),
+                "Couldn't deserialize boberplayer music index file!"
+            );
+        }
 
         Ok(db)
     }
 
-    fn addSong(&mut self, song: Song) -> Result<(), &'static str> {
+    fn add_song(&mut self, song: Song) -> Result<(), &'static str> {
         let mut data_dir = match dirs::data_dir() {
             Some(x) => x,
             None => return Err("Couldn't access data directory!"),
