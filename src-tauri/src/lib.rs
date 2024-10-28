@@ -8,6 +8,11 @@ use std::{
 };
 use std::collections;
 
+
+//Imports for databases
+//use chrono::{DateTime,Utc};
+//use sqlx::{PgPool, postgres::PgQueryResult};
+
 use dirs::data_dir;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -131,6 +136,15 @@ impl SongDatabase {
         Ok(())
     }
 }
+
+// #[derive(Debug)]
+// struct ServerData {
+//     server: String,
+//     server_id: i32,
+//     last_update: DateTime<Utc>,
+// }
+
+
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
