@@ -9,6 +9,7 @@
   async function greet() {
     // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
     greetMsg = await invoke("greet", { name });
+    await invoke("addSong_invoc",{ name , path:"sus"})
   }
 </script>
 
