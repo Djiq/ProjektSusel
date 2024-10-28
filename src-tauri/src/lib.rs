@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs::{self, File, OpenOptions},
     hash::Hash,
-    io::{BufWriter,Read, Write},
+    io::{BufWriter, Read, Write},
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -75,16 +75,17 @@ impl SongDatabase {
             "Couldn't read data from boberplayer music index file!"
         );
 
-        db.songs = unwrap_or_err!(
-            serde_json::from_str::<HashMap<String, Song>>(&data),
-            "Couldn't deserialize boberplayer music index file!"
-        );
-
+        if data.len() != 0{
+            db.songs = unwrap_or_err!(
+                serde_json::from_str(&data),
+                "Couldn't deserialize boberplayer music index file!"
+            );
+        }
 
         Ok(db)
     }
 
-    fn addSong(&mut self, song: Song) -> Result<(), &'static str> {
+    fn add_song(&mut self, song: Song) -> Result<(), &'static str> {
         let mut data_dir = match dirs::data_dir() {
             Some(x) => x,
             None => return Err("Couldn't access data directory!"),
@@ -100,15 +101,10 @@ impl SongDatabase {
 
         let data_file = data_dir.join("songindex.json");
 
-        let mut open_file: File =  unwrap_or_err!(File::options().read(false).write(true).open(data_file), "Couldn't open boberplayer music index file!");
+        let mut open_file: File =  unwrap_or_err!(File::options().read(false).write(true).open(data_file), "Couldn't open boberplayer music index file!"
+);
+
         self.songs.insert(song.path.to_owned(), song);
-
-        let json = unwrap_or_err!(
-            serde_json::to_string(&self.songs),
-            "Couldn't serialize song data into music index file!"
-        );
-
-        println!("{}",json);
 
         let mut writer = BufWriter::new(open_file);
 
@@ -117,27 +113,13 @@ impl SongDatabase {
             "Writing data to music index file failed!"
         );
 
-        match writer.flush(){
-            Ok(x)=>println!("Buffer flushed! {:?}",x),
-            Err(x)=>println!("Flushing failed {}", x)
-        }
         unwrap_or_err!(
             writer.flush(),
             "Buffer flushing failed!"
         );
-
         Ok(())
     }
 }
-
-// #[derive(Debug)]
-// struct ServerData {
-//     server: String,
-//     server_id: i32,
-//     last_update: DateTime<Utc>,
-// }
-
-
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
