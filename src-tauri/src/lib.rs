@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs::{self, File},
     hash::Hash,
-    io::{Read, Write},
+    io::{BufWriter, Read, Write},
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -121,14 +121,14 @@ impl SongDatabase {
 
         self.songs.insert(song.path.to_owned(), song);
 
-        let json = unwrap_or_err!(
-            serde_json::to_string(&self.songs),
-            "Couldn't serialize song data into music index file!"
-        );
-
+        let mut writer = BufWriter::new(open_file);
         unwrap_or_err!(
-            open_file.write_all(json.as_bytes()),
+            serde_json::to_writer(&mut writer, &self.songs),
             "Writing data to music index file failed!"
+        );
+        unwrap_or_err!(
+            writer.flush(),
+            "Buffer flushing failed!"
         );
         Ok(())
     }
