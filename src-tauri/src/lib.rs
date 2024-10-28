@@ -1,12 +1,17 @@
 use std::{
     collections::HashMap,
-    fs::{self, File},
+    fs::{self, File, OpenOptions},
     hash::Hash,
     io::{BufWriter, Read, Write},
     path::{Path, PathBuf},
     sync::Mutex,
 };
 use std::collections;
+
+
+//Imports for databases
+//use chrono::{DateTime,Utc};
+//use sqlx::{PgPool, postgres::PgQueryResult};
 
 use dirs::data_dir;
 use serde::{Deserialize, Serialize};
@@ -72,7 +77,7 @@ impl SongDatabase {
 
         if data.len() != 0{
             db.songs = unwrap_or_err!(
-                serde_json::from_str(&data),
+                serde_json::from_str::<HashMap<String, Song>>(&data),
                 "Couldn't deserialize boberplayer music index file!"
             );
         }
@@ -114,13 +119,6 @@ impl SongDatabase {
         );
         Ok(())
     }
-
-    fn get_songs() -> String {
-        let mut ret = String::new();
-
-        ret 
-    }   
-
 }
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
@@ -129,11 +127,22 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
+#[tauri::command]
+fn addSong_invoc(name: String, path: String) -> () {
+    let mut db = SongDatabase::new().unwrap();
+    let song = Song::new(name, path, None, None);
+    match db.add_song(song){
+        Ok(x)=>println!("Wrote properly! {:?}",x),
+        Err(x)=>println!("Wrote improperly! {}",x)
+    };
+}
+
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![greet,addSong_invoc])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
