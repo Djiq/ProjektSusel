@@ -77,7 +77,7 @@ impl SongDatabase {
 
         if data.len() != 0{
             db.songs = unwrap_or_err!(
-                serde_json::from_str(&data),
+                serde_json::from_str::<HashMap<String, Song>>(&data),
                 "Couldn't deserialize boberplayer music index file!"
             );
         }
@@ -131,7 +131,7 @@ fn greet(name: &str) -> String {
 fn addSong_invoc(name: String, path: String) -> () {
     let mut db = SongDatabase::new().unwrap();
     let song = Song::new(name, path, None, None);
-    match db.addSong(song){
+    match db.add_song(song){
         Ok(x)=>println!("Wrote properly! {:?}",x),
         Err(x)=>println!("Wrote improperly! {}",x)
     };
