@@ -62,18 +62,7 @@ impl SongDatabase {
 
         let data_file = data_dir.join("songindex.json");
 
-        let mut open_file: File = if !data_file.exists() {
-            unwrap_or_err!(
-                File::create(data_file),
-                "Couldn't create boberplayer music index file!"
-            );
-            return Ok(db);
-        } else {
-            unwrap_or_err!(
-                File::open(data_file),
-                "Couldn't open boberplayer music index file!"
-            )
-        };
+        let mut open_file: File = unwrap_or_err!(File::options().read(true).write(false).open(data_file), "Couldn't open boberplayer music index file!");
 
         let mut data = String::new();
         unwrap_or_err!(
@@ -107,31 +96,31 @@ impl SongDatabase {
 
         let data_file = data_dir.join("songindex.json");
 
-        let mut open_file: File = if !data_file.exists() {
-            unwrap_or_err!(
-                File::create(data_file),
-                "Couldn't create boberplayer music index file!"
-            )
-        } else {
-            unwrap_or_err!(
-                File::open(data_file),
-                "Couldn't open boberplayer music index file!"
-            )
-        };
+        let mut open_file: File =  unwrap_or_err!(File::options().read(false).write(true).open(data_file), "Couldn't open boberplayer music index file!"
+);
 
         self.songs.insert(song.path.to_owned(), song);
 
         let mut writer = BufWriter::new(open_file);
+
         unwrap_or_err!(
             serde_json::to_writer(&mut writer, &self.songs),
             "Writing data to music index file failed!"
         );
+
         unwrap_or_err!(
             writer.flush(),
             "Buffer flushing failed!"
         );
         Ok(())
     }
+
+    fn get_songs() -> String {
+        let mut ret = String::new();
+
+        ret 
+    }   
+
 }
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
