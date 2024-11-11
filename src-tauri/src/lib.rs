@@ -101,8 +101,10 @@ impl SongDatabase {
 
         let data_file = data_dir.join("songindex.json");
 
-        let mut open_file: File =  unwrap_or_err!(File::options().read(false).write(true).open(data_file), "Couldn't open boberplayer music index file!"
-);
+        let mut open_file: File =  unwrap_or_err!(
+            File::options().read(false).write(true).open(data_file), 
+            "Couldn't open boberplayer music index file!"
+        );
 
         self.songs.insert(song.path.to_owned(), song);
 
