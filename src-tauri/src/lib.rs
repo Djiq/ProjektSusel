@@ -67,9 +67,19 @@ impl SongDatabase {
 
         let data_file = data_dir.join("songindex.json");
 
-        let mut open_file: File = unwrap_or_err!(
-            File::options().read(true).write(false).create(true).open(data_file),
-            "Couldn't open boberplayer music index file!"
+        
+        //Handle file opening, create if it's missing
+
+        let mut open_file;
+        if !data_file.exists() {
+            open_file = unwrap_or_err!(
+                File::create(&data_file),
+                "Failed to create a songindex!"
+            );
+        }
+        open_file = unwrap_or_err!(
+            File::options().read(true).write(false).open(&data_file),
+            "Failed to open existing songindex!"
         );
 
         let mut data = String::new();
@@ -105,7 +115,7 @@ impl SongDatabase {
         let data_file = data_dir.join("songindex.json");
 
         let mut open_file: File =  unwrap_or_err!(
-            File::options().read(false).write(true).open(data_file), 
+            File::options().read(false).write(true).create(true).open(data_file), 
             "Couldn't open boberplayer music index file!"
         );
 
