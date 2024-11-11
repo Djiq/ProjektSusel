@@ -102,7 +102,7 @@ impl SongDatabase {
         let data_file = data_dir.join("songindex.json");
 
         let mut open_file: File =  unwrap_or_err!(
-            File::options().read(false).write(true).open(data_file), 
+            File::options().read(false).write(true).create(true).open(data_file), 
             "Couldn't open boberplayer music index file!"
         );
 
