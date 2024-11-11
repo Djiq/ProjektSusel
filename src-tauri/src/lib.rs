@@ -1,19 +1,19 @@
+use std::collections;
 use std::{
     collections::HashMap,
     fs::{self, File, OpenOptions},
     hash::Hash,
     io::{BufWriter, Read, Write},
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::{Mutex, RwLock},
 };
-use std::collections;
-
 
 //Imports for databases
 //use chrono::{DateTime,Utc};
 //use sqlx::{PgPool, postgres::PgQueryResult};
 
 use dirs::data_dir;
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 use tauri_plugin_shell::open;
@@ -27,6 +27,10 @@ macro_rules! unwrap_or_err {
     };
 }
 
+lazy_static! {
+    static ref SONGDB: RwLock<SongDatabase> = RwLock::new(SongDatabase::new().unwrap());
+}
+
 #[derive(Debug, Deserialize, Serialize, Default)]
 struct Song {
     name: String,
@@ -35,9 +39,14 @@ struct Song {
     author: Option<String>,
 }
 
-impl Song{
-    fn new(name: String, path: String, album: Option<String>, author: Option<String>) -> Self{
-        Self { name, path, album, author }
+impl Song {
+    fn new(name: String, path: String, album: Option<String>, author: Option<String>) -> Self {
+        Self {
+            name,
+            path,
+            album,
+            author,
+        }
     }
 }
 
@@ -48,6 +57,7 @@ struct SongDatabase {
 
 impl SongDatabase {
     fn new() -> Result<Self, &'static str> {
+        log::info!("Initializing SongDatabase");
         let mut db = SongDatabase {
             songs: HashMap::new(),
         };
@@ -67,7 +77,10 @@ impl SongDatabase {
 
         let data_file = data_dir.join("songindex.json");
 
-        let mut open_file: File = unwrap_or_err!(File::options().read(true).write(false).open(data_file), "Couldn't open boberplayer music index file!");
+        let mut open_file: File = unwrap_or_err!(
+            File::options().read(true).write(false).open(data_file),
+            "Couldn't open boberplayer music index file!"
+        );
 
         let mut data = String::new();
         unwrap_or_err!(
@@ -75,13 +88,13 @@ impl SongDatabase {
             "Couldn't read data from boberplayer music index file!"
         );
 
-        if data.len() != 0{
+        if data.len() != 0 {
             db.songs = unwrap_or_err!(
                 serde_json::from_str::<HashMap<String, Song>>(&data),
                 "Couldn't deserialize boberplayer music index file!"
             );
         }
-
+        log::info!("SongDatabase initialized successfully");
         Ok(db)
     }
 
@@ -101,8 +114,10 @@ impl SongDatabase {
 
         let data_file = data_dir.join("songindex.json");
 
-        let mut open_file: File =  unwrap_or_err!(File::options().read(false).write(true).open(data_file), "Couldn't open boberplayer music index file!"
-);
+        let mut open_file: File = unwrap_or_err!(
+            File::options().read(false).write(true).open(data_file),
+            "Couldn't open boberplayer music index file!"
+        );
 
         self.songs.insert(song.path.to_owned(), song);
 
@@ -113,10 +128,8 @@ impl SongDatabase {
             "Writing data to music index file failed!"
         );
 
-        unwrap_or_err!(
-            writer.flush(),
-            "Buffer flushing failed!"
-        );
+        unwrap_or_err!(writer.flush(), "Buffer flushing failed!");
+        log::info!("Song added successfully");
         Ok(())
     }
 }
@@ -129,20 +142,25 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 fn addSong_invoc(name: String, path: String) -> () {
-    let mut db = SongDatabase::new().unwrap();
     let song = Song::new(name, path, None, None);
-    match db.add_song(song){
-        Ok(x)=>println!("Wrote properly! {:?}",x),
-        Err(x)=>println!("Wrote improperly! {}",x)
+    log::info!("Adding song: [{}, {}]",song.name,song.path);
+    match SONGDB.write().unwrap().add_song(song) {
+        Ok(_) => (),
+        Err(x) => log::error!("{}",x),
     };
 }
-
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_log::Builder::new().target(tauri_plugin_log::Target::new(
+            tauri_plugin_log::TargetKind::Folder {
+              path: dirs::data_dir().unwrap().join("boberplayer"),
+              file_name: Some("log".to_owned()),
+            },
+          )).build())
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![greet,addSong_invoc])
+        .invoke_handler(tauri::generate_handler![greet, addSong_invoc])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
