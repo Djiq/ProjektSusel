@@ -1,6 +1,7 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
     import EditableLabel from "../components/editableLabel.svelte";
+    import { listen } from "@tauri-apps/api/event";
 
     let addresses = []  //['10.10.10.10', '192.167.100.1', '8.8.8.8']
     let songs = []      //[{name: 'Test', path:'/mnt/test/test'}, {name: 'Test', path:'/mnt/test/test'}]
@@ -15,6 +16,13 @@
         addresses.push('0.0.0.0')
         addresses = [...addresses]
     }
+
+    listen('tauri://drag-drop', async (ev) => {
+        for(const path of ev.payload.paths)
+        {
+            await invoke('addSong_invoc', {name:'test', path:path})
+        }
+    });
 </script>
 
 <div class="container">
