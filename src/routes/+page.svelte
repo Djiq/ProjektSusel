@@ -3,18 +3,14 @@
     import EditableLabel from "../components/editableLabel.svelte";
     import { listen } from "@tauri-apps/api/event";
 
-    let addresses = []  //['10.10.10.10', '192.167.100.1', '8.8.8.8']
-    let songs = []      //[{name: 'Test', path:'/mnt/test/test'}, {name: 'Test', path:'/mnt/test/test'}]
-
-    async function updateServers()
+    let server = '';
+    let files = [];
+    
+    function updateServerList()
     {
-        //TODO: pass server list to backend
-    }
-
-    function addServer()
-    {
-        addresses.push('0.0.0.0')
-        addresses = [...addresses]
+        invoke('ftplist', {servername: server})
+            .then(file_list => files = file_list)
+            .catch(e => files = ['Error: ' + e]);
     }
 
     listen('tauri://drag-drop', async (ev) => {
@@ -28,9 +24,9 @@
 <div class="container">
     <div class="content">
         <p class='lato-regular'>File list</p>
-        {#each songs as {name, path}}
-            <div class='song-card'>
-                <p>{name} {path}</p>
+        {#each files as file}
+            <div class="song-card">
+                <p>{file}</p>
             </div>
         {/each}
     </div>
@@ -39,13 +35,7 @@
     </div>
 
     <div class="side-bar">
-        <p>Server List</p>
-
-        {#each addresses as addr}
-            <EditableLabel bind:value={addr} on:submit={updateServers}/>
-        {/each}
-
-        <button on:click={addServer}>Add server</button>
+        <EditableLabel bind:value={server} on:submit={updateServerList}/>
     </div>
 </div>
 
