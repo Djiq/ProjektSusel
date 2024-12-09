@@ -3,10 +3,12 @@ use std::{
     collections::HashMap,
     fs::{self, File, OpenOptions},
     hash::Hash,
-    io::{BufWriter, Read, Write},
+    io::{BufWriter, Read, Write, Cursor},
     path::{Path, PathBuf},
     sync::{Mutex, RwLock},
 };
+
+use ftp::FtpStream;
 
 //Imports for databases
 //use chrono::{DateTime,Utc};
@@ -142,8 +144,25 @@ impl SongDatabase {
         log::info!("Song added successfully");
         Ok(())
     }
+
+    
 }
 
+#[tauri::command]
+fn ftplist(servername: &str) -> Result<Vec<String>, &str> {
+    let mut ftp_stream = unwrap_or_err!(
+        FtpStream::connect(servername),
+        "Couldn't connect to server!"
+    );
+
+    unwrap_or_err!(
+        ftp_stream.login("anonymous", "anonymous@example.com"),
+        "Couldn't login to server!"
+    );
+
+    let file_list = ftp_stream.nlst(None).map_err(|_| "Couldn't list files!")?;
+    Ok(file_list)
+}
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -170,7 +189,7 @@ pub fn run() {
             },
           )).build())
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![greet, addSong_invoc])
+        .invoke_handler(tauri::generate_handler![greet, addSong_invoc, ftplist])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
