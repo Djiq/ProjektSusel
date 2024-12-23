@@ -1,7 +1,7 @@
-<script>
+<script lang="ts">
     import {createEventDispatcher, onMount } from 'svelte'
 
-    export let value = '', required = true, placeholder=false;
+    export let value = '', required = true;
     const dispatch = createEventDispatcher()
     let editable = false, value_prev = '';
 
@@ -22,7 +22,7 @@
         editable = false
     }
 
-    function keydown(ev)
+    function keydown(ev : any)
     {
         if(ev.key == 'Escape')
         {
@@ -32,15 +32,15 @@
         }
     }
 
-    function focus(element)
+    function focus(element : any)
     {
         element.focus()
     }
 </script>
 
 {#if editable}
-    <form on:submit|preventDefault={update} on:keydown={keydown}>
-        <input class='label' bind:value on:blur={update} {required} use:focus/>
+    <form on:submit|preventDefault={update}>
+        <input class='label' bind:value on:keydown={keydown} on:blur={update} {required} use:focus/>
     </form>
 {:else}
     <div on:click={edit} role='button'>
@@ -52,7 +52,11 @@
 .label {
     margin: 0.5em 0 0 0;
     border-radius: 0.3em;
-    background-color: var(--base);
+    background-color: var(--color-dp18);
     min-height: 2em;
+}
+
+div {
+    border: 1px solid white;
 }
 </style>

@@ -1,12 +1,23 @@
 :root {
-  --background: #64504D;
+  /* --background: #64504D;
   --shade1: #866A67;
   --shade2: #A88582;
 
   --highlight1: #F5C2BC;
   --hightlight2: #ECBBB6;
 
-  --base: #CAA09C;
+  --base: #CAA09C; */
+
+  --background: #121212;
+  --color-dp01: color-mix(in srgb, #121212, white 5%);
+  --color-dp02: color-mix(in srgb, #121212, white 7%);
+  --color-dp03: color-mix(in srgb, #121212, white 8%);
+  --color-dp04: color-mix(in srgb, #121212, white 9%);
+  --color-dp06: color-mix(in srgb, #121212, white 11%);
+  --color-dp08: color-mix(in srgb, #121212, white 12%);
+  --color-dp12: color-mix(in srgb, #121212, white 14%);
+  --color-dp16: color-mix(in srgb, #121212, white 15%);
+  --color-dp24: color-mix(in srgb, #121212, white 16%);
 
   --border-radius: 0.7em;
 
@@ -15,8 +26,7 @@
   line-height: 24px;
   font-weight: 400;
 
-  color: #0f0f0f;
-  background-color: #f6f6f6;
+  color: white;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -36,12 +46,13 @@
 .container {
   display: grid;
   grid-template-columns: 0.8fr 1.2fr 1fr;
-  grid-template-rows: 0.2fr 1.8fr 1fr;
+  grid-template-rows: 0.2fr 1.8fr 1fr 145px;
   gap: 0 0;
   grid-template-areas: 
   "top-bar top-bar top-bar"
   "side-bar content content"
-  "side-bar content content";
+  "side-bar content content"
+  "bottom-bar bottom-bar bottom-bar";
 
   position: fixed;
   width: 100%;

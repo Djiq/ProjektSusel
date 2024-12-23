@@ -1,19 +1,24 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
-    import EditableLabel from "../components/editableLabel.svelte";
     import { listen } from "@tauri-apps/api/event";
+    
+    import EditableLabel from "../components/EditableLabel.svelte";
+    import AudioControls from "../components/AudioControls.svelte";
+
+    let src = 'https://sveltejs.github.io/assets/music/satie.mp3';
 
     let server = '';
-    let files = [];
+    let files : string[] = [];
     
-    function updateServerList()
+    async function updateServerList()
     {
-        invoke('ftplist', {servername: server})
-            .then(file_list => files = file_list)
-            .catch(e => files = ['Error: ' + e]);
+        await invoke('ftplist', {servername: server})
+            .then(
+                (val : any) => files = val,
+                (err : any) => files = ['Error: ' + err]);
     }
 
-    listen('tauri://drag-drop', async (ev) => {
+    listen('tauri://drag-drop', async (ev : any) => {
         for(const path of ev.payload.paths)
         {
             await invoke('addSong_invoc', {name:'test', path:path})
@@ -23,7 +28,7 @@
 
 <div class="container">
     <div class="content">
-        <p class='lato-regular'>File list</p>
+        <p class='lato-regular'>Listing:</p>
         {#each files as file}
             <div class="song-card">
                 <p>{file}</p>
@@ -36,6 +41,10 @@
 
     <div class="side-bar">
         <EditableLabel bind:value={server} on:submit={updateServerList}/>
+    </div>
+
+    <div class="bottom-bar">
+        <AudioControls {src} on:pause={() => console.log("pause")} on:play={() => console.log("play")}></AudioControls>
     </div>
 </div>
 
@@ -51,18 +60,19 @@
 .content { grid-area: content; }
 .top-bar { grid-area: top-bar; }
 .side-bar { grid-area: side-bar; }
+.bottom-bar {grid-area: bottom-bar; }
 
 .side-bar {
-    background: var(--shade2);
+    background: var(--color-dp01);
     border-radius: var(--border-radius);
-    margin: 0 0 1em 1em;
+    margin: 0 0 0.5em 1em;
     padding: 0.25em;
 }
 
 .content {
-    background: var(--shade1);
+    background: var(--color-dp01);
     border-radius: var(--border-radius);
-    margin: 0 1em 1em 1em;
+    margin: 0 1em 0.5em 1em;
 }
 
 .song-card 
@@ -75,5 +85,17 @@
     align-items: center;
     justify-content: flex-start;
     margin-left: 2em;
+}
+
+.bottom-bar {
+    display: flex;
+    background: var(--color-dp01);
+    border-radius: var(--border-radius);
+    margin: 0 1em 1em 1em;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 </style>
