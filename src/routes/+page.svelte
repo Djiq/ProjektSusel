@@ -2,7 +2,7 @@
     import { invoke } from "@tauri-apps/api/core";
     import { listen } from "@tauri-apps/api/event";
     
-    import EditableLabel from "../components/EditableLabel.svelte";
+    import EditableLabel from "../components/editableLabel.svelte";
     import AudioControls from "../components/AudioControls.svelte";
 
     let src = 'https://sveltejs.github.io/assets/music/satie.mp3';
