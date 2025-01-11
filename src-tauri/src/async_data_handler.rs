@@ -1,7 +1,6 @@
-use std::{fs::{self, File}, io::{BufWriter, Read, Write}, ops::Deref, path::PathBuf};
-use std::default;
+use std::{fs::{self, File}, io::{Read, Write}, ops::Deref};
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub fn get_config_file<T: Into<String>>(filename: T) -> Result<File,&'static str>{

@@ -1,11 +1,7 @@
-use std::{collections, vec};
+use std::vec;
 use std::{
     collections::HashMap,
-    fs::{self, File, OpenOptions},
-    hash::Hash,
-    io::{BufWriter, Read, Write, Cursor},
-    path::{Path, PathBuf},
-    sync::{Mutex, RwLock},
+    sync::RwLock,
 };
 
 use async_data_handler::AsyncDataHandler;
@@ -16,11 +12,8 @@ mod async_data_handler;
 //use chrono::{DateTime,Utc};
 //use sqlx::{PgPool, postgres::PgQueryResult};
 
-use dirs::data_dir;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use tauri::State;
-use tauri_plugin_shell::open;
 use uuid::Uuid;
 
 macro_rules! unwrap_or_err {
