@@ -84,9 +84,17 @@
         </button>
 
         <button on:click={() => audio?.paused ? audio?.play() : audio?.pause()}>
+            {#if audio?.paused}
+            <!-- Play Icon -->
             <svg class="w-[48px] h-[48px] text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 18V6l8 6-8 6Z"/>
-              </svg>
+            </svg>
+            {:else}
+            <!-- Pause Icon -->
+            <svg class="w-[48px] h-[48px] text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 4h4v16H6zm8 0h4v16h-4z"/>
+            </svg>
+            {/if}
         </button>
 
         <button on:click={() => dispatch("next")}>
