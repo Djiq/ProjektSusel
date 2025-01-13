@@ -25,10 +25,73 @@ macro_rules! unwrap_or_err {
     };
 }
 
+macro_rules! unwrap_or_log_and_panic {
+    ($e:expr) =>{
+        match $e{
+            Ok(x) => x,
+            Err(err) => {
+                log::error!("{}",err);
+                panic!();
+            }
+        }
+    }
+}
+
 lazy_static! {
-    static ref SONGDB: AsyncDataHandler<SongDatabase> = AsyncDataHandler::new("songindex.json").unwrap();
-    static ref PLAYLISTDB: AsyncDataHandler<PlaylistDatabase> = AsyncDataHandler::new("playlistindex.json").unwrap();
+    static ref SONGDB: AsyncDataHandler<SongDatabase> = unwrap_or_log_and_panic!(AsyncDataHandler::new("songindex.json"));
+    static ref PLAYLISTDB: AsyncDataHandler<PlaylistDatabase> = unwrap_or_log_and_panic!(AsyncDataHandler::new("playlistindex.json"));
     static ref PLAYERSTATE: RwLock<PlayerState> = RwLock::new(PlayerState::default());
+}
+
+#[derive(Debug, Deserialize, Serialize, Default)]
+struct PlaylistDatabase{
+    playlists: Vec<Playlist>
+}
+
+#[derive(Debug, Deserialize, Serialize, Default)]
+struct SongDatabase {
+    songs: HashMap<Uuid, Song>,
+}
+
+impl SongDatabase {
+    fn add_song(&mut self, song: Song) {
+        self.songs.insert(song.songid, song);
+    }
+    
+    fn get_song<'a>(&'a self, uuid: &Uuid) -> Option<&'a Song>{
+        self.songs.get(uuid)
+    }
+
+    fn get_all_songs<'a>(&'a self) -> Vec<&'a Song>{
+        self.songs.iter().map(|(k,v)|v).collect()
+    }
+
+}
+
+#[derive(Debug, Deserialize, Serialize, Default)]
+struct PlayerState{
+    current_playlist: Option<usize>
+}
+
+impl PlayerState{
+    async fn get_next_song(&self) -> Option<Uuid>{
+        if self.current_playlist.is_none() {
+            None
+        } else{
+            let playlist_id = self.current_playlist.unwrap();
+            let handle  = PLAYLISTDB.get().await;
+            let current_song_index_option = handle.playlists[playlist_id].current_song_index;
+            if current_song_index_option.is_none() {
+                log::error!("Playlist is playing, but it's current song index is undefined - defaulting to 0");
+            }
+            let index = current_song_index_option.unwrap_or(0);
+            Some(handle.playlists[playlist_id].get_songs()[index + 1])
+        }
+    }
+
+    async fn play(&mut self, song: Uuid){
+        
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Default)]
@@ -41,9 +104,9 @@ struct Song {
 }
 
 impl Song {
-    fn new(uuid: Uuid,name: String, path: String, album: Option<String>, author: Option<String>) -> Self {
+    fn new(songid: Uuid,name: String, path: String, album: Option<String>, author: Option<String>) -> Self {
         Self {
-            songid: uuid,
+            songid,
             name,
             path,
             album,
@@ -79,61 +142,16 @@ impl Playlist{
         self.songs.clone()
     }
 
-    fn add_song(&mut self, song: Uuid) -> Result<(),&'static str>{
+    async fn add_song(&mut self, song: Uuid) -> Result<(),&'static str>{
+        {
+            let songdb_handle = SONGDB.get().await;
+            if(songdb_handle.get_song(&song).is_none()){
+                return Err("No song with uuid found");
+            }
+        }
+        self.songs.push(song);
         Ok(())
     }
-}
-
-#[derive(Debug, Deserialize, Serialize, Default)]
-struct PlayerState{
-    current_song: Option<Uuid>,
-    current_playlist: Option<usize>
-}
-
-impl PlayerState{
-    async fn get_next_song(&self) -> Option<Uuid>{
-        if self.current_playlist.is_none() {
-            None
-        } else{
-            let playlist_id = self.current_playlist.unwrap();
-            let handle  = PLAYLISTDB.get().await;
-            let current_song_index_option = handle.playlists[playlist_id].current_song_index;
-            if current_song_index_option.is_none() {
-                log::error!("Playlist is playing, but it's current song index is undefined - defaulting to 0");
-            }
-            let index = current_song_index_option.unwrap_or(0);
-            Some(handle.playlists[playlist_id].get_songs()[index + 1])
-        }
-    }
-
-    async fn play(&mut self, song: Uuid){
-        
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, Default)]
-struct PlaylistDatabase{
-    playlists: Vec<Playlist>
-}
-
-#[derive(Debug, Deserialize, Serialize, Default)]
-struct SongDatabase {
-    songs: HashMap<Uuid, Song>,
-}
-
-impl SongDatabase {
-    fn add_song(&mut self, song: Song) {
-        self.songs.insert(song.songid, song);
-    }
-    
-    fn get_song<'a>(&'a self, uuid: &Uuid) -> &'a Song{
-        &self.songs[uuid]
-    }
-
-    fn get_all_songs<'a>(&'a self) -> Vec<&'a Song>{
-        self.songs.iter().map(|(k,v)|v).collect()
-    }
-
 }
 
 #[tauri::command]

@@ -18,13 +18,23 @@ pub fn get_config_file<T: Into<String>>(filename: T) -> Result<File,&'static str
             return Err("Couldn't create boberplayer data directory!")
         }
     }
-    let data_file = data_dir.join(filename_string);
 
-    let open_file: File = match File::options().read(true).write(true).open(data_file){
-        Ok(x) => x,
-        Err(_) => return Err("Couldn't open file"),
+    let data_file = data_dir.join(&filename_string);
+
+    let open_file: File = match fs::exists(&data_file) {
+        Ok(false)=> match File::create(&data_file) {
+            Ok(x) => x,
+            Err(_) => return Err("Couldn't create file"),
+        }
+        Ok(true) => match File::options().read(true).write(true).open(&data_file){
+            Ok(x) => x,
+            Err(_) => return Err("Couldn't open file"),
+        }
+        Err(_) => return Err("Error during filesystem resolution - file cannot be determined to exist"),
     };
-        
+
+    log::info!("Successfully acquired file handle for {}", filename_string);
+
     Ok(open_file)
 }
 
@@ -39,6 +49,7 @@ impl<'a,T> AsyncDataHandler<T> where T: Serialize, T: DeserializeOwned, T: Defau
     pub fn new<A:Into<String>>(filename: A) -> Result<Self,&'static str>{  
         let mut file = get_config_file(filename)?;
         let mut data = String::new();
+        
         match file.read_to_string(&mut data){
             Ok(_) => {},
             Err(_) => return Err("Couldn't parse file into string!")
@@ -65,6 +76,7 @@ impl<'a,T> AsyncDataHandler<T> where T: Serialize, T: DeserializeOwned, T: Defau
             }
             
         };
+
         match self.file.lock().await.write_all(serialized.as_bytes()){
             Ok(_) => Ok(()),
             Err(_) => Err("Couldn't write data to file!")
