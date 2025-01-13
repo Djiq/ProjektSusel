@@ -70,7 +70,6 @@ impl SongDatabase {
 
 #[derive(Debug, Deserialize, Serialize, Default)]
 struct PlayerState{
-    current_song: Option<Uuid>,
     current_playlist: Option<usize>
 }
 

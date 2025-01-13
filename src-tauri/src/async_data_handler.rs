@@ -49,6 +49,7 @@ impl<'a,T> AsyncDataHandler<T> where T: Serialize, T: DeserializeOwned, T: Defau
     pub fn new<A:Into<String>>(filename: A) -> Result<Self,&'static str>{  
         let mut file = get_config_file(filename)?;
         let mut data = String::new();
+        
         match file.read_to_string(&mut data){
             Ok(_) => {},
             Err(_) => return Err("Couldn't parse file into string!")
@@ -75,7 +76,7 @@ impl<'a,T> AsyncDataHandler<T> where T: Serialize, T: DeserializeOwned, T: Defau
             }
             
         };
-        
+
         match self.file.lock().await.write_all(serialized.as_bytes()){
             Ok(_) => Ok(()),
             Err(_) => Err("Couldn't write data to file!")
