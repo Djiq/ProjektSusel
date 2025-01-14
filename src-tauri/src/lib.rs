@@ -1,24 +1,20 @@
-use std::collections;
+use std::vec;
 use std::{
     collections::HashMap,
-    fs::{self, File, OpenOptions},
-    hash::Hash,
-    io::{BufWriter, Read, Write, Cursor},
-    path::{Path, PathBuf},
-    sync::{Mutex, RwLock},
+    sync::RwLock,
 };
 
+use async_data_handler::AsyncDataHandler;
 use ftp::FtpStream;
 
+mod async_data_handler;
 //Imports for databases
 //use chrono::{DateTime,Utc};
 //use sqlx::{PgPool, postgres::PgQueryResult};
 
-use dirs::data_dir;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use tauri::State;
-use tauri_plugin_shell::open;
+use uuid::Uuid;
 
 macro_rules! unwrap_or_err {
     ( $e:expr, $err:tt ) => {
@@ -29,12 +25,78 @@ macro_rules! unwrap_or_err {
     };
 }
 
+macro_rules! unwrap_or_log_and_panic {
+    ($e:expr) =>{
+        match $e{
+            Ok(x) => x,
+            Err(err) => {
+                log::error!("{}",err);
+                panic!();
+            }
+        }
+    }
+}
+
 lazy_static! {
-    static ref SONGDB: RwLock<SongDatabase> = RwLock::new(SongDatabase::new().unwrap());
+    static ref SONGDB: AsyncDataHandler<SongDatabase> = unwrap_or_log_and_panic!(AsyncDataHandler::new("songindex.json"));
+    static ref PLAYLISTDB: AsyncDataHandler<PlaylistDatabase> = unwrap_or_log_and_panic!(AsyncDataHandler::new("playlistindex.json"));
+    static ref PLAYERSTATE: RwLock<PlayerState> = RwLock::new(PlayerState::default());
+}
+
+#[derive(Debug, Deserialize, Serialize, Default)]
+struct PlaylistDatabase{
+    playlists: Vec<Playlist>
+}
+
+#[derive(Debug, Deserialize, Serialize, Default)]
+struct SongDatabase {
+    songs: HashMap<Uuid, Song>,
+}
+
+impl SongDatabase {
+    fn add_song(&mut self, song: Song) {
+        self.songs.insert(song.songid, song);
+    }
+    
+    fn get_song<'a>(&'a self, uuid: &Uuid) -> Option<&'a Song>{
+        self.songs.get(uuid)
+    }
+
+    fn get_all_songs<'a>(&'a self) -> Vec<&'a Song>{
+        self.songs.iter().map(|(k,v)|v).collect()
+    }
+
+}
+
+#[derive(Debug, Deserialize, Serialize, Default)]
+struct PlayerState{
+    current_playlist: Option<usize>
+}
+
+impl PlayerState{
+    async fn get_next_song(&self) -> Option<Uuid>{
+        if self.current_playlist.is_none() {
+            None
+        } else{
+            let playlist_id = self.current_playlist.unwrap();
+            let handle  = PLAYLISTDB.get().await;
+            let current_song_index_option = handle.playlists[playlist_id].current_song_index;
+            if current_song_index_option.is_none() {
+                log::error!("Playlist is playing, but it's current song index is undefined - defaulting to 0");
+            }
+            let index = current_song_index_option.unwrap_or(0);
+            Some(handle.playlists[playlist_id].get_songs()[index + 1])
+        }
+    }
+
+    async fn play(&mut self, song: Uuid){
+        
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Default)]
 struct Song {
+    songid: Uuid,
     name: String,
     path: String,
     album: Option<String>,
@@ -42,8 +104,9 @@ struct Song {
 }
 
 impl Song {
-    fn new(name: String, path: String, album: Option<String>, author: Option<String>) -> Self {
+    fn new(songid: Uuid,name: String, path: String, album: Option<String>, author: Option<String>) -> Self {
         Self {
+            songid,
             name,
             path,
             album,
@@ -53,99 +116,42 @@ impl Song {
 }
 
 #[derive(Debug, Deserialize, Serialize, Default)]
-struct SongDatabase {
-    songs: HashMap<String, Song>,
+struct Playlist{
+    id: usize,
+    name: String,
+    desc: Option<String>,
+    current_song_index: Option<usize>,
+    songs: Vec<Uuid>
 }
 
-impl SongDatabase {
-    fn new() -> Result<Self, &'static str> {
-        log::info!("Initializing SongDatabase");
-        let mut db = SongDatabase {
-            songs: HashMap::new(),
-        };
-
-        let mut data_dir = match dirs::data_dir() {
-            Some(x) => x,
-            None => return Err("Couldn't access data directory!"),
-        };
-
-        data_dir = data_dir.join("boberplayer");
-        if !data_dir.exists() {
-            unwrap_or_err!(
-                fs::create_dir(data_dir.clone()),
-                "Couldn't create boberplayer data directory!"
-            );
+impl Playlist{
+    fn new<A: Into<String>, B: Into<String>>(id: usize,name: A, desc: Option<B>) -> Self{
+        Playlist{
+            id,
+            name: name.into(),
+            desc: match desc {
+                Some(x) => Some(x.into()),
+                None => None,
+            },
+            current_song_index: None,
+            songs: Vec::new()
         }
-
-        let data_file = data_dir.join("songindex.json");
-
-        
-        //Handle file opening, create if it's missing
-
-        let mut open_file;
-        if !data_file.exists() {
-            open_file = unwrap_or_err!(
-                File::create(&data_file),
-                "Failed to create a songindex!"
-            );
-        }
-        open_file = unwrap_or_err!(
-            File::options().read(true).write(false).open(&data_file),
-            "Failed to open existing songindex!"
-        );
-
-        let mut data = String::new();
-        unwrap_or_err!(
-            open_file.read_to_string(&mut data),
-            "Couldn't read data from boberplayer music index file!"
-        );
-
-        if data.len() != 0 {
-            db.songs = unwrap_or_err!(
-                serde_json::from_str::<HashMap<String, Song>>(&data),
-                "Couldn't deserialize boberplayer music index file!"
-            );
-        }
-        log::info!("SongDatabase initialized successfully");
-        Ok(db)
     }
 
-    fn add_song(&mut self, song: Song) -> Result<(), &'static str> {
-        let mut data_dir = match dirs::data_dir() {
-            Some(x) => x,
-            None => return Err("Couldn't access data directory!"),
-        };
+    fn get_songs(&self) -> Vec<Uuid> {
+        self.songs.clone()
+    }
 
-        data_dir = data_dir.join("boberplayer");
-        if !data_dir.exists() {
-            unwrap_or_err!(
-                fs::create_dir(data_dir.clone()),
-                "Couldn't create boberplayer data directory!"
-            );
+    async fn add_song(&mut self, song: Uuid) -> Result<(),&'static str>{
+        {
+            let songdb_handle = SONGDB.get().await;
+            if(songdb_handle.get_song(&song).is_none()){
+                return Err("No song with uuid found");
+            }
         }
-
-        let data_file = data_dir.join("songindex.json");
-
-        let mut open_file: File =  unwrap_or_err!(
-            File::options().read(false).write(true).open(data_file), 
-            "Couldn't open boberplayer music index file!"
-        );
-
-        self.songs.insert(song.path.to_owned(), song);
-
-        let mut writer = BufWriter::new(open_file);
-
-        unwrap_or_err!(
-            serde_json::to_writer(&mut writer, &self.songs),
-            "Writing data to music index file failed!"
-        );
-
-        unwrap_or_err!(writer.flush(), "Buffer flushing failed!");
-        log::info!("Song added successfully");
+        self.songs.push(song);
         Ok(())
     }
-
-    
 }
 
 #[tauri::command]
@@ -163,20 +169,13 @@ fn ftplist(servername: &str) -> Result<Vec<String>, &str> {
     let file_list = ftp_stream.nlst(None).map_err(|_| "Couldn't list files!")?;
     Ok(file_list)
 }
-// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
 
 #[tauri::command]
-fn addSong_invoc(name: String, path: String) -> () {
-    let song = Song::new(name, path, None, None);
+async fn addSong_invoc(name: String, path: String) -> () {
+    let song = Song::new(Uuid::new_v4(),name, path, None, None);
     log::info!("Adding song: [{}, {}]",song.name,song.path);
-    match SONGDB.write().unwrap().add_song(song) {
-        Ok(_) => (),
-        Err(x) => log::error!("{}",x),
-    };
+    SONGDB.get_mut().await.add_song(song);
+    tokio::spawn(async {SONGDB.save().await});
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -189,7 +188,7 @@ pub fn run() {
             },
           )).build())
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![greet, addSong_invoc, ftplist])
+        .invoke_handler(tauri::generate_handler![addSong_invoc, ftplist])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
