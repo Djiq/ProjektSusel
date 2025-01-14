@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { createEventDispatcher } from "svelte";
+    import { createEventDispatcher, onMount } from "svelte";
     import { fade } from "svelte/transition";
 
     export let src;
@@ -21,6 +21,7 @@
 
     let timeline : HTMLProgressElement;
     let tooltip : HTMLDivElement;
+
     let currentTime = 0;
 
     function seek(event : any, bounds : any) 
@@ -77,7 +78,7 @@
             </svg>
         </button>
 
-        <button on:click={() => dispatch("previous")}>
+        <button on:click={() => {dispatch("rewind"); if(audio != null) audio.currentTime = 0;}}>
             <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m17 16-4-4 4-4m-6 8-4-4 4-4"/>
               </svg>              
@@ -85,14 +86,12 @@
 
         <button on:click={() => audio?.paused ? audio?.play() : audio?.pause()}>
             {#if audio?.paused}
-            <!-- Play Icon -->
             <svg class="w-[48px] h-[48px] text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 18V6l8 6-8 6Z"/>
             </svg>
             {:else}
-            <!-- Pause Icon -->
-            <svg class="w-[48px] h-[48px] text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 4h4v16H6zm8 0h4v16h-4z"/>
+            <svg class="w-[48px] h-[48px] text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+                <path fill-rule="evenodd" d="M8 5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H8Zm7 0a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1Z" clip-rule="evenodd"/>
             </svg>
             {/if}
         </button>
@@ -108,13 +107,14 @@
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m16 10 3-3m0 0-3-3m3 3H5v3m3 4-3 3m0 0 3 3m-3-3h14v-3"/>
             </svg>
         </button>
-
     </div>
     <div class="progress-container">
-        <span>{format(currentTime)}</span>
+        <span>
+            {format(currentTime)}
+        </span>
         <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
         <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <progress
+       <progress
             bind:this={timeline}
             value={currentTime ? currentTime : 0}
             max={duration}
@@ -134,9 +134,7 @@
         style="--left:{tooltipX}px;
             --top:{tooltipY}px;
             --background-color:white; --box-color:red;">
-        {#if showTooltip}
-            {seekText}
-        {/if}
+        {seekText}
     </div>
 {/if}
 
@@ -148,10 +146,10 @@
     {muted}
     {volume}
     on:play|preventDefault
-    on:ended
     {src}
     {preload}
     on:pause
+    on:ended={() => {currentTime = 0; dispatch("ended");}}
 ></audio>
 
 <style>
@@ -179,7 +177,6 @@
         background-color: var(--color-dp08);
         color:white;
         border: 1px solid var(--color-dp12);
-        box-shadow: 0 4px 8px 0 black;
 
         &:hover {
             background-color: var(--color-dp24);
@@ -193,7 +190,6 @@
         padding: 1px;
         border-radius: 5px;
         border-width: 3px;
-        box-shadow: 6px 6px red;
         color: red;
         pointer-events: none;
         min-width: 50px;
