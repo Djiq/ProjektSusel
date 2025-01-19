@@ -1,4 +1,5 @@
 use std::net::IpAddr;
+use std::ops::Index;
 use std::vec;
 use std::{
     collections::HashMap,
@@ -47,7 +48,7 @@ lazy_static! {
 
 #[derive(Debug, Deserialize, Serialize, Default)]
 struct ServerDatabase{
-    playlists: Vec<Server>
+    servers: Vec<Server>
 }
 
 #[derive(Debug, Deserialize, Serialize, Default)]
@@ -99,6 +100,20 @@ impl PlayerState{
     async fn play(&mut self, song: Uuid){
         
     }
+}
+
+impl ServerDatabase{
+    fn add_server(&mut self, serv:Server){
+        //self.servers.push(serv);
+        match self.servers.binary_search(&serv) {
+            Ok(pos) => {} 
+            Err(pos) => self.servers.insert(pos, serv),
+        }
+        
+    }
+    // fn remove_server(&mut self, serv:Server){
+    //     self.servers.remove()
+    // }
 }
 
 #[derive(Debug, Deserialize, Serialize, Default)]
@@ -161,15 +176,15 @@ impl Playlist{
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Ord, PartialOrd, PartialEq, Eq)]
 struct Server{
-    ip: IpAddr,
     name: String,
+    ip: IpAddr,
 }
 
 impl Server{
-    fn new(ip: IpAddr, name: String)->Self{
-        Server{ip, name}
+    fn new<A: Into<String>>(ip: IpAddr, name: A)->Self{
+        Server{ip, name:name.into()}
     }
 }
     
