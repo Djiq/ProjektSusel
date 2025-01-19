@@ -16,23 +16,14 @@
     let src = 'https://sveltejs.github.io/assets/music/satie.mp3';
     // let src = convertFileSrc("local paths");
 
-    let server = '';
-    let files : string[] = [];
-    
-    async function updateServerList()
-    {
-        await invoke('cmd_ftplist', {servername: server})
-            .then(
-                (val : any) => files = val,
-                (err : any) => files = ['Error: ' + err]);
-    }
+    let servers = [
+        {name: "server 1", ip: "111.111.111.111"},
+        {name: "server 2", ip: "222.222.222.222"},
+        {name: "server 3", ip: "333.333.333.333"}];
 
-    listen('tauri://drag-drop', async (ev : any) => {
-        for(const path of ev.payload.paths)
-        {
-            await invoke('cmd_add_song', { path:path,name:'test',album: null, author: null})
-        }
-    });
+    let state = Tab.SERVERS;
+
+    let test : any;
 </script>
 
 <div class="container">
