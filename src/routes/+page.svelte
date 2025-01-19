@@ -12,7 +12,7 @@
     
     async function updateServerList()
     {
-        await invoke('ftplist', {servername: server})
+        await invoke('cmd_ftplist', {servername: server})
             .then(
                 (val : any) => files = val,
                 (err : any) => files = ['Error: ' + err]);
@@ -21,7 +21,7 @@
     listen('tauri://drag-drop', async (ev : any) => {
         for(const path of ev.payload.paths)
         {
-            await invoke('addSong_invoc', {name:'test', path:path})
+            await invoke('cmd_add_song', { path:path,name:'test',album: null, author: null})
         }
     });
 </script>

@@ -1,7 +1,8 @@
-use std::{fs::{self, File}, io::{Read, Write}, ops::Deref};
+use std::{fs::{self, File}, io::{Read, Write}, ops::Deref, os::windows::fs::FileExt};
 
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
+
 
 pub fn get_config_file<T: Into<String>>(filename: T) -> Result<File,&'static str>{
     let filename_string = filename.into();
@@ -49,16 +50,21 @@ impl<'a,T> AsyncDataHandler<T> where T: Serialize, T: DeserializeOwned, T: Defau
     pub fn new<A:Into<String>>(filename: A) -> Result<Self,&'static str>{  
         let mut file = get_config_file(filename)?;
         let mut data = String::new();
-        
-        match file.read_to_string(&mut data){
-            Ok(_) => {},
-            Err(_) => return Err("Couldn't parse file into string!")
-        };  
-
-        let data: T = match serde_json::from_str(&data){
-            Ok(a) => a,
-            Err(_) => T::default()
-        };
+        let data = match file.read_to_string(&mut data){
+            Ok(_) => {
+                match serde_json::from_str(&data){
+                    Ok(a) => a,
+                    Err(_) => {
+                        log::error!("Defaulting - Couldn't parse string into data");
+                        T::default()
+                    }
+                }
+            },
+            Err(_) => {
+                log::error!("Defaulting - Couldn't parse file into string");
+                T::default()
+            }
+        };   
 
         Ok(AsyncDataHandler{
             file: Mutex::new(file),
@@ -76,8 +82,7 @@ impl<'a,T> AsyncDataHandler<T> where T: Serialize, T: DeserializeOwned, T: Defau
             }
             
         };
-
-        match self.file.lock().await.write_all(serialized.as_bytes()){
+        match self.file.lock().await.seek_write(serialized.as_bytes(), 0){
             Ok(_) => Ok(()),
             Err(_) => Err("Couldn't write data to file!")
         }
@@ -91,5 +96,6 @@ impl<'a,T> AsyncDataHandler<T> where T: Serialize, T: DeserializeOwned, T: Defau
     pub async fn get_mut(&self) ->  RwLockWriteGuard<T>{
         return self.data.write().await;
     }
+
 
 }
