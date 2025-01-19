@@ -1,6 +1,6 @@
 use std::net::IpAddr;
 use std::ops::Index;
-use std::vec;
+use std::{string, vec};
 use std::{
     collections::HashMap,
     sync::RwLock,
@@ -15,6 +15,7 @@ mod async_data_handler;
 //use sqlx::{PgPool, postgres::PgQueryResult};
 
 use lazy_static::lazy_static;
+use log::log;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -103,18 +104,41 @@ impl PlayerState{
 }
 
 impl ServerDatabase{
-    fn add_server(&mut self, serv:Server){
-        //self.servers.push(serv);
+    fn add_server(&mut self, name: String, ip: String){
+        let adress: IpAddr = unwrap_or_err!(
+            ip.parse(),
+            "Couldn't parse!"
+        );
+        let serv= Server::new(adress,name);
         match self.servers.binary_search(&serv) {
             Ok(pos) => {} 
             Err(pos) => self.servers.insert(pos, serv),
         }
-        
     }
-    // fn remove_server(&mut self, serv:Server){
-    //     self.servers.remove()
-    // }
+    fn modify_server(&mut self, old_name: String, name: String, ip: String){
+        let adress: IpAddr = unwrap_or_err!(
+            ip.parse(),
+            "Couldn't parse!"
+        );
+        let serv= Server::new(adress,name);
+        match self.servers.iter().position(|s| s.name == old_name) {
+            Some(pos) => self.servers[pos] = serv,
+            None => log::error!("No such server found!"),
+        }
+    }
+    fn remove_server(&mut self, name: String, ip: String){
+        let adress: IpAddr = unwrap_or_err!(
+            ip.parse(),
+            "Couldn't parse!"
+        );
+        let serv= Server::new(adress,name);
+        match self.servers.binary_search(&serv) {
+            Ok(pos) => self.servers.remove(pos), 
+            Err(pos) => {}
+        }
+    }
 }
+    
 
 #[derive(Debug, Deserialize, Serialize, Default)]
 struct Song {
