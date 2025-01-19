@@ -1,13 +1,4 @@
 :root {
-  /* --background: #64504D;
-  --shade1: #866A67;
-  --shade2: #A88582;
-
-  --highlight1: #F5C2BC;
-  --hightlight2: #ECBBB6;
-
-  --base: #CAA09C; */
-
   --background: #121212;
   --color-dp01: color-mix(in srgb, #121212, white 5%);
   --color-dp02: color-mix(in srgb, #121212, white 7%);
@@ -33,6 +24,8 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
+
+  scrollbar-color: var(--color-dp24) var(--color-dp01);
 }
 
 *, *::after, *::before {
@@ -46,7 +39,7 @@
 .container {
   display: grid;
   grid-template-columns: 0.8fr 1.2fr 1fr;
-  grid-template-rows: 0.2fr 1.8fr 1fr 145px;
+  grid-template-rows: 0.25fr 1.8fr 1fr 145px;
   gap: 0 0;
   grid-template-areas: 
   "top-bar top-bar top-bar"
