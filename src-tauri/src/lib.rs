@@ -1,3 +1,4 @@
+use std::net::IpAddr;
 use std::vec;
 use std::{
     collections::HashMap,
@@ -39,8 +40,14 @@ macro_rules! unwrap_or_log_and_panic {
 
 lazy_static! {
     static ref SONGDB: AsyncDataHandler<SongDatabase> = unwrap_or_log_and_panic!(AsyncDataHandler::new("songindex.json"));
+    static ref SERVERDB: AsyncDataHandler<ServerDatabase> = unwrap_or_log_and_panic!(AsyncDataHandler::new("serverindex.json"));
     static ref PLAYLISTDB: AsyncDataHandler<PlaylistDatabase> = unwrap_or_log_and_panic!(AsyncDataHandler::new("playlistindex.json"));
     static ref PLAYERSTATE: RwLock<PlayerState> = RwLock::new(PlayerState::default());
+}
+
+#[derive(Debug, Deserialize, Serialize, Default)]
+struct ServerDatabase{
+    playlists: Vec<Server>
 }
 
 #[derive(Debug, Deserialize, Serialize, Default)]
@@ -153,6 +160,19 @@ impl Playlist{
         Ok(())
     }
 }
+
+#[derive(Debug, Deserialize, Serialize)]
+struct Server{
+    ip: IpAddr,
+    name: String,
+}
+
+impl Server{
+    fn new(ip: IpAddr, name: String)->Self{
+        Server{ip, name}
+    }
+}
+    
 
 #[tauri::command]
 fn ftplist(servername: &str) -> Result<Vec<String>, &str> {
