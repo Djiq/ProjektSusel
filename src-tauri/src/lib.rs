@@ -8,6 +8,9 @@ use async_data_handler::AsyncDataHandler;
 use ftp::FtpStream;
 
 mod async_data_handler;
+mod commands;
+#[macro_use]
+mod macros;
 //Imports for databases
 //use chrono::{DateTime,Utc};
 //use sqlx::{PgPool, postgres::PgQueryResult};
@@ -16,26 +19,8 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-macro_rules! unwrap_or_err {
-    ( $e:expr, $err:tt ) => {
-        match $e {
-            Ok(x) => x,
-            Err(_) => return Err($err),
-        }
-    };
-}
-
-macro_rules! unwrap_or_log_and_panic {
-    ($e:expr) =>{
-        match $e{
-            Ok(x) => x,
-            Err(err) => {
-                log::error!("{}",err);
-                panic!();
-            }
-        }
-    }
-}
+pub(crate) use unwrap_or_err;
+pub(crate) use unwrap_or_log_and_panic;
 
 lazy_static! {
     static ref SONGDB: AsyncDataHandler<SongDatabase> = unwrap_or_log_and_panic!(AsyncDataHandler::new("songindex.json"));
@@ -46,6 +31,12 @@ lazy_static! {
 #[derive(Debug, Deserialize, Serialize, Default)]
 struct PlaylistDatabase{
     playlists: Vec<Playlist>
+}
+
+impl PlaylistDatabase{
+    fn add_playlist(&mut self,name: String, desc: Option<String>){
+        self.playlists.push(Playlist::new(self.playlists.len(), name, desc));
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Default)]
@@ -94,7 +85,7 @@ impl PlayerState{
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default,Clone)]
 struct Song {
     songid: Uuid,
     name: String,
@@ -115,7 +106,7 @@ impl Song {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default,Clone)]
 struct Playlist{
     id: usize,
     name: String,
@@ -138,8 +129,8 @@ impl Playlist{
         }
     }
 
-    fn get_songs(&self) -> Vec<Uuid> {
-        self.songs.clone()
+    fn get_songs<'a>(&'a self) -> &'a Vec<Uuid> {
+        &self.songs
     }
 
     async fn add_song(&mut self, song: Uuid) -> Result<(),&'static str>{
@@ -155,7 +146,7 @@ impl Playlist{
 }
 
 #[tauri::command]
-fn ftplist(servername: &str) -> Result<Vec<String>, &str> {
+fn cmd_ftplist(servername: &str) -> Result<Vec<String>, &str> {
     let mut ftp_stream = unwrap_or_err!(
         FtpStream::connect(servername),
         "Couldn't connect to server!"
@@ -171,11 +162,39 @@ fn ftplist(servername: &str) -> Result<Vec<String>, &str> {
 }
 
 #[tauri::command]
-async fn addSong_invoc(name: String, path: String) -> () {
-    let song = Song::new(Uuid::new_v4(),name, path, None, None);
+async fn cmd_add_song(path: String,name: String,album: Option<String>,author: Option<String>) -> () {
+    let song = Song::new(Uuid::new_v4(),name, path, album, author);
     log::info!("Adding song: [{}, {}]",song.name,song.path);
     SONGDB.get_mut().await.add_song(song);
-    tokio::spawn(async {SONGDB.save().await});
+    tokio::spawn(async {unwrap_or_log_and_panic!(SONGDB.save().await)});
+}
+
+#[tauri::command]
+async fn cmd_get_all_songs() -> Vec<Song> {
+    SONGDB.get().await.get_all_songs().iter().map(|song| (*song).clone()).collect()
+}
+
+#[tauri::command]
+async fn cmd_get_playlist_songs(playlist: usize) -> Vec<Song>{
+    let uuid_vec = PLAYLISTDB.get().await.playlists[playlist].get_songs().clone();
+    let songdb = SONGDB.get().await;
+    uuid_vec.iter().map(|uuid|songdb.get_song(uuid).unwrap().clone()).collect()
+}
+
+#[tauri::command]
+async fn cmd_get_playlists() -> Vec<Playlist> {
+    PLAYLISTDB.get().await.playlists.clone()
+}
+
+#[tauri::command]
+async fn cmd_add_playlist(name: String, desc: Option<String>) {
+    PLAYLISTDB.get_mut().await.add_playlist(name, desc);
+    tokio::spawn(async {unwrap_or_log_and_panic!(PLAYLISTDB.save().await)});
+}
+
+#[tauri::command]
+async fn cmd_add_song_to_playlist(song: Uuid, playlist: usize){
+    unwrap_or_log_and_panic!(PLAYLISTDB.get_mut().await.playlists[playlist].add_song(song).await);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -188,7 +207,7 @@ pub fn run() {
             },
           )).build())
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![addSong_invoc, ftplist])
+        .invoke_handler(tauri::generate_handler![cmd_add_song, cmd_ftplist,cmd_get_all_songs,cmd_get_playlist_songs,cmd_get_playlists,cmd_add_playlist,cmd_add_song_to_playlist])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
