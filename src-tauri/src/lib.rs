@@ -121,9 +121,9 @@ impl ServerDatabase{
             "Couldn't parse!"
         );
         let serv= Server::new(adress,name);
-        match self.servers.iter().position(|s| s.name == old_name) {
-            Some(pos) => self.servers[pos] = serv,
-            None => log::error!("No such server found!"),
+        match self.servers.binary_search_by_key(&old_name,|s| s.name) {
+            Ok(pos) => self.servers[pos] = serv,
+            Err(_) => log::error!("No such server found!"),
         }
     }
     fn remove_server(&mut self, name: String, ip: String){
