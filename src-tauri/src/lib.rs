@@ -10,9 +10,6 @@ use async_data_handler::AsyncDataHandler;
 use ftp::FtpStream;
 
 mod async_data_handler;
-//Imports for databases
-//use chrono::{DateTime,Utc};
-//use sqlx::{PgPool, postgres::PgQueryResult};
 
 use lazy_static::lazy_static;
 use log::log;
