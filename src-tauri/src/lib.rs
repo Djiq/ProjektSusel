@@ -278,6 +278,16 @@ async fn cmd_add_song_to_playlist(song: Uuid, playlist: usize){
     unwrap_or_log_and_panic!(PLAYLISTDB.get_mut().await.playlists[playlist].add_song(song).await);
 }
 
+#[tauri::command]
+async fn cmd_get_song(song: Uuid) -> Song{
+    unwrap_or_log_and_panic!(SONGDB.get().await.get_song(song))
+}
+
+#[tauri::command]
+async fn cmd_get_playlist(playlist: usize) -> Song{
+    unwrap_or_log_and_panic!(PLAYLISTDB.get().await.playlists.get(playlist))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
