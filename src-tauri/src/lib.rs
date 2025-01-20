@@ -130,7 +130,7 @@ impl ServerDatabase{
             Ok(pos) => {
                 self.servers.remove(pos);
             }
-            Err(_) => {}
+            Err(_) => log::error!("No such server found!"),
         }
     }
 }
@@ -208,12 +208,25 @@ impl Server{
     }
 }
 #[tauri::command]
-async fn addserver(name: String, ip: String){
-    SERVERDB.get_mut().await.add_server(name, ip);
+async fn addserver(name: String, ip: String) -> (){
+    match SERVERDB.get_mut().await.add_server(name, ip){
+        Ok(_) => {},
+        Err(err) => log::error!("Failed to add server! Reason:{}",err)
+    };
+    tokio::spawn(async {SERVERDB.save().await});
 }
 #[tauri::command]
 async fn rmserver(name: String){
     SERVERDB.get_mut().await.remove_server(name);
+    tokio::spawn(async {SERVERDB.save().await});
+}
+#[tauri::command]
+async fn modserver(oldname:String, newname: String, ip:String){
+    match SERVERDB.get_mut().await.modify_server(oldname, newname, ip){
+        Ok(_) => {},
+        Err(err) => log::error!("Failed to modify server! Reason:{}",err)
+    };
+    tokio::spawn(async {SERVERDB.save().await});
 }
     
 
@@ -251,7 +264,7 @@ pub fn run() {
             },
           )).build())
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![addSong_invoc, ftplist])
+        .invoke_handler(tauri::generate_handler![addSong_invoc, ftplist, addserver, rmserver, modserver])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
