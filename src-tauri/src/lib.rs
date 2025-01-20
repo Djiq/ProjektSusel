@@ -1,4 +1,6 @@
-use std::vec;
+use std::net::IpAddr;
+use std::ops::Index;
+use std::{string, vec};
 use std::{
     collections::HashMap,
     sync::RwLock,
@@ -11,11 +13,10 @@ mod async_data_handler;
 mod commands;
 #[macro_use]
 mod macros;
-//Imports for databases
-//use chrono::{DateTime,Utc};
-//use sqlx::{PgPool, postgres::PgQueryResult};
+
 
 use lazy_static::lazy_static;
+use log::log;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -24,8 +25,14 @@ pub(crate) use unwrap_or_log_and_panic;
 
 lazy_static! {
     static ref SONGDB: AsyncDataHandler<SongDatabase> = unwrap_or_log_and_panic!(AsyncDataHandler::new("songindex.json"));
+    static ref SERVERDB: AsyncDataHandler<ServerDatabase> = unwrap_or_log_and_panic!(AsyncDataHandler::new("serverindex.json"));
     static ref PLAYLISTDB: AsyncDataHandler<PlaylistDatabase> = unwrap_or_log_and_panic!(AsyncDataHandler::new("playlistindex.json"));
     static ref PLAYERSTATE: RwLock<PlayerState> = RwLock::new(PlayerState::default());
+}
+
+#[derive(Debug, Deserialize, Serialize, Default)]
+struct ServerDatabase{
+    servers: Vec<Server>
 }
 
 #[derive(Debug, Deserialize, Serialize, Default)]
@@ -82,6 +89,41 @@ impl PlayerState{
 
     async fn play(&mut self, song: Uuid){
         
+    }
+}
+
+impl ServerDatabase{
+    fn add_server(&mut self, name: String, ip: String) -> Result<(), std::net::AddrParseError>{
+        let adress:IpAddr = match ip.parse::<IpAddr>(){
+            Ok(result) => result,
+            Err(err) => return Err(err),
+        };
+        let serv= Server::new(adress,name);
+        match self.servers.binary_search(&serv) {
+            Ok(pos) => {} 
+            Err(pos) => self.servers.insert(pos, serv),
+        }
+        Ok(())
+    }
+    fn modify_server(&mut self, old_name: String, name: String, ip: String) -> Result<(), std::net::AddrParseError>{
+        let adress:IpAddr = match ip.parse::<IpAddr>(){
+            Ok(result) => result,
+            Err(err) => return Err(err),
+        };
+        let serv= Server::new(adress,name);
+        match self.servers.binary_search_by_key(&old_name,|s| s.name.clone()) {
+            Ok(pos) => self.servers[pos] = serv,
+            Err(_) => log::error!("No such server found!"),
+        }
+        Ok(())
+    }
+    fn remove_server(&mut self, name: String) {
+        match self.servers.binary_search_by_key(&name, |s| s.name.clone()) {
+            Ok(pos) => {
+                self.servers.remove(pos);
+            }
+            Err(_) => log::error!("No such server found!"),
+        }
     }
 }
 
@@ -145,6 +187,40 @@ impl Playlist{
     }
 }
 
+#[derive(Debug, Deserialize, Serialize, Ord, PartialOrd, PartialEq, Eq)]
+struct Server{
+    name: String,
+    ip: IpAddr,
+}
+
+impl Server{
+    fn new<A: Into<String>>(ip: IpAddr, name: A)->Self{
+        Server{ip, name:name.into()}
+    }
+}
+#[tauri::command]
+async fn cmd_add_server(name: String, ip: String) -> (){
+    match SERVERDB.get_mut().await.add_server(name, ip){
+        Ok(_) => {},
+        Err(err) => log::error!("Failed to add server! Reason:{}",err)
+    };
+    tokio::spawn(async {SERVERDB.save().await});
+}
+#[tauri::command]
+async fn cmd_rm_server(name: String){
+    SERVERDB.get_mut().await.remove_server(name);
+    tokio::spawn(async {SERVERDB.save().await});
+}
+#[tauri::command]
+async fn cmd_mod_server(oldname:String, newname: String, ip:String){
+    match SERVERDB.get_mut().await.modify_server(oldname, newname, ip){
+        Ok(_) => {},
+        Err(err) => log::error!("Failed to modify server! Reason:{}",err)
+    };
+    tokio::spawn(async {SERVERDB.save().await});
+}
+    
+
 #[tauri::command]
 fn cmd_ftplist(servername: &str) -> Result<Vec<String>, &str> {
     let mut ftp_stream = unwrap_or_err!(
@@ -207,7 +283,7 @@ pub fn run() {
             },
           )).build())
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![cmd_add_song, cmd_ftplist,cmd_get_all_songs,cmd_get_playlist_songs,cmd_get_playlists,cmd_add_playlist,cmd_add_song_to_playlist])
+        .invoke_handler(tauri::generate_handler![cmd_add_song, cmd_ftplist,cmd_get_all_songs,cmd_get_playlist_songs,cmd_get_playlists,cmd_add_playlist,cmd_add_song_to_playlist, cmd_add_server, cmd_rm_server, cmd_mod_server])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
