@@ -1,201 +1,15 @@
-use std::vec;
-use std::{
-    collections::HashMap,
-    sync::RwLock,
-};
 
-use async_data_handler::AsyncDataHandler;
-use ftp::FtpStream;
+use std::vec;
+
 
 mod async_data_handler;
 mod commands;
 #[macro_use]
 mod macros;
-//Imports for databases
-//use chrono::{DateTime,Utc};
-//use sqlx::{PgPool, postgres::PgQueryResult};
+mod statics;
 
-use lazy_static::lazy_static;
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-
-pub(crate) use unwrap_or_err;
-pub(crate) use unwrap_or_log_and_panic;
-
-lazy_static! {
-    static ref SONGDB: AsyncDataHandler<SongDatabase> = unwrap_or_log_and_panic!(AsyncDataHandler::new("songindex.json"));
-    static ref PLAYLISTDB: AsyncDataHandler<PlaylistDatabase> = unwrap_or_log_and_panic!(AsyncDataHandler::new("playlistindex.json"));
-    static ref PLAYERSTATE: RwLock<PlayerState> = RwLock::new(PlayerState::default());
-}
-
-#[derive(Debug, Deserialize, Serialize, Default)]
-struct PlaylistDatabase{
-    playlists: Vec<Playlist>
-}
-
-impl PlaylistDatabase{
-    fn add_playlist(&mut self,name: String, desc: Option<String>){
-        self.playlists.push(Playlist::new(self.playlists.len(), name, desc));
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, Default)]
-struct SongDatabase {
-    songs: HashMap<Uuid, Song>,
-}
-
-impl SongDatabase {
-    fn add_song(&mut self, song: Song) {
-        self.songs.insert(song.songid, song);
-    }
-    
-    fn get_song<'a>(&'a self, uuid: &Uuid) -> Option<&'a Song>{
-        self.songs.get(uuid)
-    }
-
-    fn get_all_songs<'a>(&'a self) -> Vec<&'a Song>{
-        self.songs.iter().map(|(k,v)|v).collect()
-    }
-
-}
-
-#[derive(Debug, Deserialize, Serialize, Default)]
-struct PlayerState{
-    current_playlist: Option<usize>
-}
-
-impl PlayerState{
-    async fn get_next_song(&self) -> Option<Uuid>{
-        if self.current_playlist.is_none() {
-            None
-        } else{
-            let playlist_id = self.current_playlist.unwrap();
-            let handle  = PLAYLISTDB.get().await;
-            let current_song_index_option = handle.playlists[playlist_id].current_song_index;
-            if current_song_index_option.is_none() {
-                log::error!("Playlist is playing, but it's current song index is undefined - defaulting to 0");
-            }
-            let index = current_song_index_option.unwrap_or(0);
-            Some(handle.playlists[playlist_id].get_songs()[index + 1])
-        }
-    }
-
-    async fn play(&mut self, song: Uuid){
-        
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, Default,Clone)]
-struct Song {
-    songid: Uuid,
-    name: String,
-    path: String,
-    album: Option<String>,
-    author: Option<String>,
-}
-
-impl Song {
-    fn new(songid: Uuid,name: String, path: String, album: Option<String>, author: Option<String>) -> Self {
-        Self {
-            songid,
-            name,
-            path,
-            album,
-            author,
-        }
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, Default,Clone)]
-struct Playlist{
-    id: usize,
-    name: String,
-    desc: Option<String>,
-    current_song_index: Option<usize>,
-    songs: Vec<Uuid>
-}
-
-impl Playlist{
-    fn new<A: Into<String>, B: Into<String>>(id: usize,name: A, desc: Option<B>) -> Self{
-        Playlist{
-            id,
-            name: name.into(),
-            desc: match desc {
-                Some(x) => Some(x.into()),
-                None => None,
-            },
-            current_song_index: None,
-            songs: Vec::new()
-        }
-    }
-
-    fn get_songs<'a>(&'a self) -> &'a Vec<Uuid> {
-        &self.songs
-    }
-
-    async fn add_song(&mut self, song: Uuid) -> Result<(),&'static str>{
-        {
-            let songdb_handle = SONGDB.get().await;
-            if(songdb_handle.get_song(&song).is_none()){
-                return Err("No song with uuid found");
-            }
-        }
-        self.songs.push(song);
-        Ok(())
-    }
-}
-
-#[tauri::command]
-fn cmd_ftplist(servername: &str) -> Result<Vec<String>, &str> {
-    let mut ftp_stream = unwrap_or_err!(
-        FtpStream::connect(servername),
-        "Couldn't connect to server!"
-    );
-
-    unwrap_or_err!(
-        ftp_stream.login("anonymous", "anonymous@example.com"),
-        "Couldn't login to server!"
-    );
-
-    let file_list = ftp_stream.nlst(None).map_err(|_| "Couldn't list files!")?;
-    Ok(file_list)
-}
-
-#[tauri::command]
-async fn cmd_add_song(path: String,name: String,album: Option<String>,author: Option<String>) -> () {
-    let song = Song::new(Uuid::new_v4(),name, path, album, author);
-    log::info!("Adding song: [{}, {}]",song.name,song.path);
-    SONGDB.get_mut().await.add_song(song);
-    tokio::spawn(async {unwrap_or_log_and_panic!(SONGDB.save().await)});
-}
-
-#[tauri::command]
-async fn cmd_get_all_songs() -> Vec<Song> {
-    SONGDB.get().await.get_all_songs().iter().map(|song| (*song).clone()).collect()
-}
-
-#[tauri::command]
-async fn cmd_get_playlist_songs(playlist: usize) -> Vec<Song>{
-    let uuid_vec = PLAYLISTDB.get().await.playlists[playlist].get_songs().clone();
-    let songdb = SONGDB.get().await;
-    uuid_vec.iter().map(|uuid|songdb.get_song(uuid).unwrap().clone()).collect()
-}
-
-#[tauri::command]
-async fn cmd_get_playlists() -> Vec<Playlist> {
-    PLAYLISTDB.get().await.playlists.clone()
-}
-
-#[tauri::command]
-async fn cmd_add_playlist(name: String, desc: Option<String>) {
-    PLAYLISTDB.get_mut().await.add_playlist(name, desc);
-    tokio::spawn(async {unwrap_or_log_and_panic!(PLAYLISTDB.save().await)});
-}
-
-#[tauri::command]
-async fn cmd_add_song_to_playlist(song: Uuid, playlist: usize){
-    unwrap_or_log_and_panic!(PLAYLISTDB.get_mut().await.playlists[playlist].add_song(song).await);
-}
+use crate::statics::*;
+use crate::commands::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -207,7 +21,7 @@ pub fn run() {
             },
           )).build())
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![cmd_add_song, cmd_ftplist,cmd_get_all_songs,cmd_get_playlist_songs,cmd_get_playlists,cmd_add_playlist,cmd_add_song_to_playlist])
+        .invoke_handler(tauri::generate_handler![cmd_add_song, cmd_ftplist,cmd_get_all_songs,cmd_get_playlist_songs,cmd_get_playlists,cmd_add_playlist,cmd_add_song_to_playlist, cmd_add_server, cmd_rm_server, cmd_mod_server, cmd_get_servers, cmd_get_playlist,cmd_get_song,cmd_download])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

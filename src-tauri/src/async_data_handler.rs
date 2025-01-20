@@ -1,12 +1,10 @@
-use std::{fs::{self, File}, io::{Read, Write}, ops::Deref, os::windows::fs::FileExt};
+use std::{fs::{self, File}, io::{self, Read, Seek, SeekFrom, Write}, ops::Deref, path::PathBuf};
 
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-
-pub fn get_config_file<T: Into<String>>(filename: T) -> Result<File,&'static str>{
-    let filename_string = filename.into();
-    log::info!("Acquiring file handler for {}",&filename_string);
+pub fn get_config() -> Result<PathBuf,&'static str>{
+    log::info!("Acquiring config directory");
 
     let mut data_dir = match dirs::data_dir() {
         Some(x) => x,
@@ -19,6 +17,14 @@ pub fn get_config_file<T: Into<String>>(filename: T) -> Result<File,&'static str
             return Err("Couldn't create boberplayer data directory!")
         }
     }
+    Ok(data_dir)
+}
+
+pub fn get_config_file<T: Into<String>>(filename: T) -> Result<File,&'static str>{
+    let filename_string = filename.into();
+    log::info!("Acquiring file handler for {}",&filename_string);
+
+    let data_dir = get_config()?;
 
     let data_file = data_dir.join(&filename_string);
 
@@ -72,6 +78,12 @@ impl<'a,T> AsyncDataHandler<T> where T: Serialize, T: DeserializeOwned, T: Defau
         })
     }
 
+    fn seek_write(file: &mut tokio::sync::MutexGuard<'_, std::fs::File, >, data: &[u8], offset: u64) -> Result<(), io::Error> {
+        file.seek(SeekFrom::Start(offset))?;
+        file.write_all(data)?;
+        Ok(())
+    }
+
     pub async fn save(&self) -> Result<(),&'static str>{
         
         let serialized = {
@@ -82,7 +94,8 @@ impl<'a,T> AsyncDataHandler<T> where T: Serialize, T: DeserializeOwned, T: Defau
             }
             
         };
-        match self.file.lock().await.seek_write(serialized.as_bytes(), 0){
+        
+        match Self::seek_write(&mut self.file.lock().await, serialized.as_bytes(), 0){
             Ok(_) => Ok(()),
             Err(_) => Err("Couldn't write data to file!")
         }
