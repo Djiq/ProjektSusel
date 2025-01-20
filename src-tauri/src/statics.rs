@@ -1,12 +1,10 @@
 use lazy_static::lazy_static;
 use crate::async_data_handler::AsyncDataHandler;
 use serde::{Deserialize, Serialize};
-use tokio::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use tokio::sync::RwLock;
 use uuid::Uuid;
-use ftp::FtpStream;
 use std::collections::HashMap;
 use std::net::IpAddr;
-use std::ops::Index;
 
 lazy_static! {
     pub static ref SONGDB: AsyncDataHandler<SongDatabase> = unwrap_or_log_and_panic!(AsyncDataHandler::new("songindex.json"));
@@ -46,7 +44,7 @@ impl SongDatabase {
     }
 
     pub fn get_all_songs<'a>(&'a self) -> Vec<&'a Song>{
-        self.songs.iter().map(|(k,v)|v).collect()
+        self.songs.iter().map(|(_,v)|v).collect()
     }
 
 }
@@ -57,7 +55,7 @@ pub struct PlayerState{
 }
 
 impl PlayerState{
-    pub async fn get_next_song(&self) -> Option<Uuid>{
+    /*pub async fn get_next_song(&self) -> Option<Uuid>{
         if self.current_playlist.is_none() {
             None
         } else{
@@ -74,7 +72,7 @@ impl PlayerState{
 
     pub async fn play(&mut self, song: Uuid){
         
-    }
+    }*/
 }
 
 impl ServerDatabase{

@@ -1,6 +1,5 @@
 use std::{fs::{self, File}, io::{self, Read, Seek, SeekFrom, Write}, ops::Deref};
 
-use log::kv::Error;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 

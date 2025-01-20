@@ -1,11 +1,5 @@
 
-use std::{string, vec};
-use std::{
-    collections::HashMap,
-    sync::RwLock,
-};
-
-use async_data_handler::AsyncDataHandler;
+use std::vec;
 
 
 mod async_data_handler;
@@ -14,9 +8,6 @@ mod commands;
 mod macros;
 mod statics;
 
-use lazy_static::lazy_static;
-use log::log;
-use serde::{Deserialize, Serialize};
 use crate::statics::*;
 use crate::commands::*;
 
@@ -30,7 +21,7 @@ pub fn run() {
             },
           )).build())
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![cmd_add_song, cmd_ftplist,cmd_get_all_songs,cmd_get_playlist_songs,cmd_get_playlists,cmd_add_playlist,cmd_add_song_to_playlist, cmd_add_server, cmd_rm_server, cmd_mod_server, cmd_get_servers])
+        .invoke_handler(tauri::generate_handler![cmd_add_song, cmd_ftplist,cmd_get_all_songs,cmd_get_playlist_songs,cmd_get_playlists,cmd_add_playlist,cmd_add_song_to_playlist, cmd_add_server, cmd_rm_server, cmd_mod_server, cmd_get_servers, cmd_get_playlist,cmd_get_song])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
