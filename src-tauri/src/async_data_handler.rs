@@ -1,5 +1,6 @@
-use std::{fs::{self, File}, io::{Read, Write}, ops::Deref, os::windows::fs::FileExt};
+use std::{fs::{self, File}, io::{self, Read, Seek, SeekFrom, Write}, ops::Deref};
 
+use log::kv::Error;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
@@ -72,6 +73,12 @@ impl<'a,T> AsyncDataHandler<T> where T: Serialize, T: DeserializeOwned, T: Defau
         })
     }
 
+    fn seek_write(file: &mut tokio::sync::MutexGuard<'_, std::fs::File, >, data: &[u8], offset: u64) -> Result<(), io::Error> {
+        file.seek(SeekFrom::Start(offset))?;
+        file.write_all(data)?;
+        Ok(())
+    }
+
     pub async fn save(&self) -> Result<(),&'static str>{
         
         let serialized = {
@@ -82,7 +89,8 @@ impl<'a,T> AsyncDataHandler<T> where T: Serialize, T: DeserializeOwned, T: Defau
             }
             
         };
-        match self.file.lock().await.seek_write(serialized.as_bytes(), 0){
+        
+        match Self::seek_write(&mut self.file.lock().await, serialized.as_bytes(), 0){
             Ok(_) => Ok(()),
             Err(_) => Err("Couldn't write data to file!")
         }
