@@ -187,7 +187,7 @@ impl Playlist{
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Ord, PartialOrd, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, Ord, PartialOrd, PartialEq, Eq, Clone)]
 struct Server{
     name: String,
     ip: IpAddr,
@@ -198,6 +198,11 @@ impl Server{
         Server{ip, name:name.into()}
     }
 }
+#[tauri::command]
+async fn cmd_get_servers() -> Vec<Server>{
+    SERVERDB.get().await.servers.to_vec()
+}
+
 #[tauri::command]
 async fn cmd_add_server(name: String, ip: String) -> (){
     match SERVERDB.get_mut().await.add_server(name, ip){
@@ -283,7 +288,7 @@ pub fn run() {
             },
           )).build())
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![cmd_add_song, cmd_ftplist,cmd_get_all_songs,cmd_get_playlist_songs,cmd_get_playlists,cmd_add_playlist,cmd_add_song_to_playlist, cmd_add_server, cmd_rm_server, cmd_mod_server])
+        .invoke_handler(tauri::generate_handler![cmd_add_song, cmd_ftplist,cmd_get_all_songs,cmd_get_playlist_songs,cmd_get_playlists,cmd_add_playlist,cmd_add_song_to_playlist, cmd_add_server, cmd_rm_server, cmd_mod_server, cmd_get_servers])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
