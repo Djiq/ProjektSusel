@@ -9,6 +9,8 @@
   --color-dp12: color-mix(in srgb, #121212, white 14%);
   --color-dp16: color-mix(in srgb, #121212, white 15%);
   --color-dp24: color-mix(in srgb, #121212, white 16%);
+  --color-dp48: color-mix(in srgb, #121212, white 48%);
+  --color-dp65: color-mix(in srgb, #121212, white 65%);
 
   --border-radius: 0.7em;
 

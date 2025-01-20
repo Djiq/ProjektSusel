@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { invoke } from "@tauri-apps/api/core";
     import TwoPanelLayout from "src/components/TwoPanelLayout.svelte";
     import { createEventDispatcher, onMount } from "svelte";
 

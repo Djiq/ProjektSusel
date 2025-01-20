@@ -1,14 +1,21 @@
+<svelte:options accessors/>
 <script lang="ts">
-    import { createEventDispatcher, onMount } from "svelte";
+    import { createEventDispatcher, onMount, tick } from "svelte";
+    import { convertFileSrc, invoke } from "@tauri-apps/api/core";
     import { fade } from "svelte/transition";
 
-    export let src;
+    export let song : Song;
     export let audio : HTMLAudioElement|null = null;
     export let paused = true;
     export let duration = 0;
     export let volume = 1;
     export let muted = false;
     export let preload = "metadata";
+
+    export let shuffle = false;
+    export let repeat = false;
+
+    $: source = convertFileSrc(song.path);
 
     const dispatch = createEventDispatcher();
 
@@ -23,6 +30,16 @@
     let tooltip : HTMLDivElement;
 
     let currentTime = 0;
+
+    export async function play()
+    {
+        audio?.play();
+    }
+
+    export async function pause()
+    {
+        audio?.pause();
+    }
 
     function seek(event : any, bounds : any) 
     {
@@ -71,8 +88,11 @@
 />
 
 <div class="audio-controls">
+    <div class="scrolling-marquee">
+        <p>Now playing: {song.name} by {song.author}</p>
+    </div>
     <div class="audio-controls-buttons">
-        <button on:click={() => dispatch("shuffle")}>
+        <button class:active={shuffle} on:click={() => {dispatch("shuffle"); shuffle = !shuffle;}}>
             <svg class="w-[48px] h-[48px] text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.484 9.166 15 7h5m0 0-3-3m3 3-3 3M4 17h4l1.577-2.253M4 7h4l7 10h5m0 0-3 3m3-3-3-3"/>
             </svg>
@@ -102,7 +122,7 @@
             </svg>              
         </button>
 
-        <button on:click={() => dispatch("looping")}>
+        <button class:active={repeat} on:click={() => {dispatch("repeat"); repeat = !repeat;}}>
             <svg class="w-[48px] h-[48px] text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m16 10 3-3m0 0-3-3m3 3H5v3m3 4-3 3m0 0 3 3m-3-3h14v-3"/>
             </svg>
@@ -138,19 +158,21 @@
     </div>
 {/if}
 
-<audio
-    bind:this={audio}
-    bind:paused
-    bind:duration
-    bind:currentTime
-    {muted}
-    {volume}
-    on:play|preventDefault
-    {src}
-    {preload}
-    on:pause
-    on:ended={() => {currentTime = 0; dispatch("ended");}}
-></audio>
+{#if song.path != ""}
+    <audio
+        bind:this={audio}
+        bind:paused
+        bind:duration
+        bind:currentTime
+        {muted}
+        {volume}
+        on:play|preventDefault
+        src={source}
+        {preload}
+        on:pause
+        on:ended={() => {currentTime = 0; dispatch("ended");}}
+    ></audio>
+{/if}
 
 <style>
     .audio-controls-buttons {
@@ -158,7 +180,7 @@
         align-items: center;
         justify-content: center;
         gap: 0.75rem;
-        margin-bottom: 15px;
+        margin: 7px 0 7px 0;
     }
 
     button {
@@ -182,6 +204,10 @@
             background-color: var(--color-dp24);
             border: 1px solid var(--color-dp18);
         }
+    }
+
+    button.active {
+        border: 2px solid var(--color-dp48);
     }
 
     .tooltip 
@@ -223,6 +249,24 @@
         border-radius: 15px;
     }
     
+    .scrolling-marquee {
+        white-space: nowrap;
+        overflow: hidden;
+        box-sizing: border-box;
+        max-width: 30em;
+    }
+
+    .scrolling-marquee p {
+        display: inline-block;
+        padding-left: 100%;
+        animation: marquee 10s linear infinite;
+    }
+
+    @keyframes marquee {
+        0% { transform: translate(0, 0); }
+        100% {transform: translate(-100%, 0);}
+    }
+
     progress::-webkit-progress-bar {background-color: var(--color-dp04); width: 100%; border-radius: 15px;}
 
     progress::-webkit-progress-value { background: color-mix(in srgb, #121212, white 75%);; border-radius: 15px; }

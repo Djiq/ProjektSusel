@@ -1,11 +1,12 @@
 <script lang="ts">
-    import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-    import { listen } from "@tauri-apps/api/event";
+    import { convertFileSrc } from "@tauri-apps/api/core";
+    import { parseWebStream } from "music-metadata"
+    import { tick } from "svelte";
 
     import AudioControls from "src/components/AudioControls.svelte";
     import ServerManagement from "src/components/ServerManagement.svelte";
     import NotImplemented from "src/components/NotImplemented.svelte";
-    import { onMount } from "svelte";
+    import AudioTracks from "src/components/AudioTracks.svelte";
 
     enum Tab {
         SONG = 0,
@@ -13,20 +14,101 @@
         SERVERS
     };
 
-    let src = 'https://sveltejs.github.io/assets/music/satie.mp3';
-    // let src = convertFileSrc("local paths");
+    let standby = true; 
+    let audio_controls : AudioControls;
+    // let src = 'https://sveltejs.github.io/assets/music/satie.mp3';
+    // // let src = convertFileSrc("local paths");
 
-    let servers = [
-        {name: "server 1", ip: "111.111.111.111"},
-        {name: "server 2", ip: "222.222.222.222"},
-        {name: "server 3", ip: "333.333.333.333"}];
+    let song_current : Song = {
+        path: "",
+        name: "",
+        album: "",
+        uuid: 0,
+        author: null
+    };
 
-    let state = Tab.SERVERS;
+    let queue : Song[] = [];
+    let servers : any[] = [];
+    let state : Tab = Tab.SONG;
 
-    let test : any;
+    async function changeTrack(song: Song)
+    {
+        audio_controls.pause();
+        song_current = song;
+        await tick();
+        audio_controls.play();
+    }
+
+    function enqueueSong(song: Song)
+    {
+        if(standby)
+        {
+            changeTrack(song);
+            standby = false;
+            return;
+        }
+
+        queue.push(song);
+        queue = [...queue];
+    }
+
+    function trackEnded()
+    {
+        if(queue.length != 0)
+        {
+            if(audio_controls?.repeat)
+            {
+                queue.push(song_current);
+                queue = [...queue];
+            }
+
+            changeTrack(queue.shift() as Song);
+            queue = [...queue];
+        }
+        else
+        {
+            if(audio_controls?.repeat)
+                changeTrack(song_current);
+            else
+                standby = true;
+        }
+    }
+
+    function trackNext()
+    {
+        if(standby)
+            return;
+
+        if(queue.length != 0)
+        {
+            if(audio_controls?.looping)
+                queue.push(song_current);
+
+            changeTrack(queue.shift() as Song);
+            queue = [...queue];
+        }
+    }
+
+    async function server_added(event: CustomEvent)
+    {
+    }
+
+    async function debugButton()
+    {
+        let test = convertFileSrc("D:\\Downloads\\Sunny day in peaceful town.mp3");
+        const resp = await fetch(test);
+        const stream = resp.body;
+
+        parseWebStream(stream).then(x => console.log(x));
+
+        // song_current.path = "https://sveltejs.github.io/assets/music/satie.mp3";
+        // song_current.name = "test title";
+        // await invoke("cmd_add_song", {path: "D:\\Downloads\\Eve_-_Headphone_Actor_(mp3.pm).mp3", name: "name_test", album: null, author: "me"});
+    }
 </script>
 
 <div class="container">
+    <button on:click={debugButton}> </button>
     <div class="top-bar">
         <button on:click={() => state = Tab.SONG} class="tab" class:active={state == Tab.SONG}>
             <svg class="w-[48px] h-[48px] text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
@@ -49,21 +131,25 @@
 
     {#if state == Tab.SERVERS}
         <ServerManagement 
-            on:serveradded={(s) => console.log(s.detail)} 
+            on:serveradded={server_added} 
             on:serverupdated={(s) => console.log(s.detail)}
             on:serverremoved={(s) => console.log(s.detail)}
             bind:serverList={servers}>
         </ServerManagement>
+    {:else if state == Tab.SONG}
+        <AudioTracks bind:current={song_current} bind:queue on:select={(s) => enqueueSong(s.detail)}></AudioTracks>
     {:else}
         <NotImplemented></NotImplemented>
     {/if}
 
     <div class="bottom-bar">
         <AudioControls 
-            {src} 
+            bind:this={audio_controls}
+            bind:song={song_current}
             on:pause={() => console.log("pause")} 
             on:play={() => console.log("play")}
-            on:ended={() => console.log("ended")}>
+            on:ended={() => trackEnded()}
+            on:next={() => trackNext()}>
         </AudioControls>
     </div>
 </div>
