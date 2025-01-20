@@ -101,27 +101,29 @@ impl PlayerState{
 }
 
 impl ServerDatabase{
-    fn add_server(&mut self, name: String, ip: String){
-        let adress: IpAddr = unwrap_or_err!(
-            ip.parse(),
-            "Couldn't parse!"
-        );
+    fn add_server(&mut self, name: String, ip: String) -> Result<(), std::net::AddrParseError>{
+        let adress:IpAddr = match ip.parse::<IpAddr>(){
+            Ok(result) => result,
+            Err(err) => return Err(err),
+        };
         let serv= Server::new(adress,name);
         match self.servers.binary_search(&serv) {
             Ok(pos) => {} 
             Err(pos) => self.servers.insert(pos, serv),
         }
+        Ok(())
     }
-    fn modify_server(&mut self, old_name: String, name: String, ip: String){
-        let adress: IpAddr = unwrap_or_err!(
-            ip.parse(),
-            "Couldn't parse!"
-        );
+    fn modify_server(&mut self, old_name: String, name: String, ip: String) -> Result<(), std::net::AddrParseError>{
+        let adress:IpAddr = match ip.parse::<IpAddr>(){
+            Ok(result) => result,
+            Err(err) => return Err(err),
+        };
         let serv= Server::new(adress,name);
-        match self.servers.binary_search_by_key(&old_name,|s| s.name) {
+        match self.servers.binary_search_by_key(&old_name,|s| s.name.clone()) {
             Ok(pos) => self.servers[pos] = serv,
             Err(_) => log::error!("No such server found!"),
         }
+        Ok(())
     }
     fn remove_server(&mut self, name: String) {
         match self.servers.binary_search_by_key(&name, |s| s.name.clone()) {
