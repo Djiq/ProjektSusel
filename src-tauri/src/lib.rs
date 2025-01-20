@@ -123,15 +123,12 @@ impl ServerDatabase{
             Err(_) => log::error!("No such server found!"),
         }
     }
-    fn remove_server(&mut self, name: String, ip: String){
-        let adress: IpAddr = unwrap_or_err!(
-            ip.parse(),
-            "Couldn't parse!"
-        );
-        let serv= Server::new(adress,name);
-        match self.servers.binary_search(&serv) {
-            Ok(pos) => self.servers.remove(pos), 
-            Err(pos) => {}
+    fn remove_server(&mut self, name: String) {
+        match self.servers.binary_search_by_key(&name, |s| s.name.clone()) {
+            Ok(pos) => {
+                self.servers.remove(pos);
+            }
+            Err(_) => {}
         }
     }
 }
@@ -207,6 +204,14 @@ impl Server{
     fn new<A: Into<String>>(ip: IpAddr, name: A)->Self{
         Server{ip, name:name.into()}
     }
+}
+#[tauri::command]
+async fn addserver(name: String, ip: String){
+    SERVERDB.get_mut().await.add_server(name, ip);
+}
+#[tauri::command]
+async fn rmserver(name: String){
+    SERVERDB.get_mut().await.remove_server(name);
 }
     
 
