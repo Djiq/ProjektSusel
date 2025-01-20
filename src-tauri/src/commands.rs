@@ -3,7 +3,7 @@ use std::{fs::File, io::Write};
 
 use crate::*;
 
-use async_data_handler::get_config_file;
+use async_data_handler::{get_config, get_config_file};
 use uuid::Uuid;
 use ftp::FtpStream;
 
@@ -25,7 +25,7 @@ pub fn cmd_ftplist(servername: &str) -> Result<Vec<String>, &str> {
 }
 
 #[tauri::command]
-pub fn cmd_download(servername: String, songname: String) -> () {
+pub fn cmd_download(servername: String, songname: String) -> String {
     let mut ftp_stream = unwrap_or_err!(
         FtpStream::connect(servername),
         "Couldn't connect to server!"
@@ -42,13 +42,15 @@ pub fn cmd_download(servername: String, songname: String) -> () {
     );
 
     let bytes = cursor.into_inner();
-
+    let config = get_config()?;
+    config.join(&songname);
     let mut file = unwrap_or_err!(
-        get_config_file(songname),
+        File::create(config),
         "Couldn't create song file"
     );
 
     file.write_all(&bytes);
+    return config
 }
 
 #[tauri::command]
