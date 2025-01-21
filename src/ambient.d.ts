@@ -1,10 +1,15 @@
 type Song = {
-    uuid: number,
+    songid: number,
     name: string,
     path: string,
     album: string | null,
     author: string | null
 };
+
+type Server = {
+    name: string,
+    ip: string
+}
 
 type Playlist = {
     id: number,

@@ -41,6 +41,13 @@
         audio?.pause();
     }
 
+    export async function rewind()
+    {
+        dispatch("rewind");
+        if(audio != null) 
+            audio.currentTime = 0;
+    }
+
     function seek(event : any, bounds : any) 
     {
         let x = event.pageX - bounds.left;
@@ -89,7 +96,13 @@
 
 <div class="audio-controls">
     <div class="scrolling-marquee">
-        <p>Now playing: {song.name} by {song.author}</p>
+        {#if song.songid != 0}
+            <p>
+                Now playing: {song.name} {#if song.author} by {song.author} {/if}
+            </p>
+        {:else}
+            <p>Add songs to queue to start playing</p>
+        {/if}
     </div>
     <div class="audio-controls-buttons">
         <button class:active={shuffle} on:click={() => {dispatch("shuffle"); shuffle = !shuffle;}}>
@@ -98,7 +111,7 @@
             </svg>
         </button>
 
-        <button on:click={() => {dispatch("rewind"); if(audio != null) audio.currentTime = 0;}}>
+        <button on:click={() => {rewind}}>
             <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m17 16-4-4 4-4m-6 8-4-4 4-4"/>
               </svg>              

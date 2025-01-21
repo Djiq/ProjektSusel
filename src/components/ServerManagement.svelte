@@ -1,13 +1,12 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
     import TwoPanelLayout from "src/components/TwoPanelLayout.svelte";
-    import { createEventDispatcher, onMount } from "svelte";
-
-    export let serverList : any[];
+    import { createEventDispatcher, onMount, tick } from "svelte";
 
     const dispatch = createEventDispatcher();
 
     let selected : any = null;
+    let retrigger : boolean = false;
 
     let editor : any = {
         name: "",
@@ -32,7 +31,6 @@
             selected.name = editor.name;
             selected.ip = editor.addr;
 
-            serverList = serverList;
             dispatch("serverupdated", {old_name, selected});
         }
     }
@@ -46,21 +44,24 @@
 
     function addSever()
     {
-        serverList.push({name: editor.name, ip: editor.addr});
-        serverList = serverList;
-
-        selectServer(serverList[serverList.length - 1])
-        dispatch("serveradded", selected);
+        dispatch("serveradded", {name: editor.name, ip: editor.addr});
+        selected = {name: editor.name, ip: editor.addr};
+        retrigger = !retrigger;
     }
 
-    function deleteServer()
+    async function deleteServer()
     {
         if(selected != null)
         {
-            serverList = serverList.filter(x => x != selected);
-            dispatch("serverremoved", selected.name);
+            await invoke("cmd_rm_server", {name: selected.name});
             setAdding();
+            retrigger = !retrigger;
         }
+    }
+
+    async function getServers(retrigger: any) : Promise<Server[]>
+    {
+        return await invoke("cmd_get_servers");
     }
 </script>
 
@@ -69,14 +70,14 @@
         <div><p>Server List</p></div>
 
         <div class="server-card-container">
-            {#each serverList as server}
-                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                <!-- svelte-ignore a11y-interactive-supports-focus -->
-                <button on:click={() => selectServer(server)} class="server-card">
-                    <p>{server.name}</p>
-                    <p>{server.ip}</p>
-                </button>
-            {/each}
+            {#await getServers(retrigger) then servers}
+                {#each servers as server}
+                    <button on:click={() => selectServer(server)} class="server-card">
+                        <p>{server.name}</p>
+                        <p>{server.ip}</p>
+                    </button>
+                {/each}
+            {/await}
         </div>
         
         <button on:click={setAdding}>Add server</button>

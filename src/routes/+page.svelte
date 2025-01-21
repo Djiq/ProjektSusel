@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { convertFileSrc } from "@tauri-apps/api/core";
+    import { convertFileSrc, invoke } from "@tauri-apps/api/core";
     import { parseWebStream } from "music-metadata"
     import { tick } from "svelte";
 
@@ -14,83 +14,137 @@
         SERVERS
     };
 
-    let standby = true; 
     let audio_controls : AudioControls;
-    // let src = 'https://sveltejs.github.io/assets/music/satie.mp3';
-    // // let src = convertFileSrc("local paths");
 
     let song_current : Song = {
         path: "",
         name: "",
         album: "",
-        uuid: 0,
+        songid: 0,
         author: null
     };
 
+    let queueIndex = 0;
     let queue : Song[] = [];
-    let servers : any[] = [];
     let state : Tab = Tab.SONG;
 
     async function changeTrack(song: Song)
     {
         audio_controls.pause();
-        song_current = song;
+        if(song_current.songid == song.songid)
+            audio_controls.rewind();
+        else
+            song_current = song;
+
         await tick();
         audio_controls.play();
     }
 
     function enqueueSong(song: Song)
     {
-        if(standby)
+        if(queue.length == 0 || queueIndex == queue.length)
         {
             changeTrack(song);
-            standby = false;
-            return;
+            queue = [...queue];
         }
 
         queue.push(song);
         queue = [...queue];
     }
 
+    function shuffle_queue()
+    {
+        if(queueIndex >= queue.length - 1)
+            return;
+
+        let min = queueIndex;
+        let max = queue.length;
+
+        let rand = Math.floor(Math.random() * (max - min) + min);
+        if(rand == queueIndex)
+            return;
+
+        [queue[queueIndex], queue[rand]] = [queue[rand], queue[queueIndex]];
+    }
+
     function trackEnded()
     {
-        if(queue.length != 0)
+        queueIndex++;
+
+        if(queueIndex == queue.length)
         {
             if(audio_controls?.repeat)
             {
-                queue.push(song_current);
-                queue = [...queue];
+                queueIndex = 0;
             }
-
-            changeTrack(queue.shift() as Song);
-            queue = [...queue];
-        }
-        else
-        {
-            if(audio_controls?.repeat)
-                changeTrack(song_current);
             else
-                standby = true;
+                return;
         }
+        
+        if(audio_controls?.shuffle)
+            shuffle_queue();
+
+        changeTrack(queue[queueIndex]);
+        queue = [...queue];
     }
 
     function trackNext()
     {
-        if(standby)
+        if(queue.length == 0)
             return;
 
-        if(queue.length != 0)
-        {
-            if(audio_controls?.looping)
-                queue.push(song_current);
+        queueIndex++;
+        if(queueIndex >= queue.length)
+            queueIndex = 0;
 
-            changeTrack(queue.shift() as Song);
-            queue = [...queue];
-        }
+        if(audio_controls?.shuffle)
+            shuffle_queue();
+
+        changeTrack(queue[queueIndex]);
+        queue = [...queue];
     }
 
     async function server_added(event: CustomEvent)
     {
+        await invoke("cmd_add_server", {name: event.detail.name, ip: event.detail.ip});
+        let files : string[] = await invoke("cmd_ftplist", {servername: event.detail.ip});
+        console.log(files);
+        for(const file of files)
+        {
+            let path : string = await invoke("cmd_download", {servername: event.detail.ip, songname: file});
+            let src = convertFileSrc(path);
+            let metadata = await parseWebStream((await fetch(src)).body);
+
+            let payload = {
+                path: path,
+                name: metadata?.common?.title ?? "",
+                album: metadata?.common?.album ?? null,
+                author: metadata?.common?.artist ?? null
+            };
+
+            console.log(path, metadata, payload);
+
+            await invoke("cmd_add_song", payload);
+        }
+    }
+
+    function queueCleared()
+    {
+        queue = [song_current];
+        queueIndex = 0;
+        audio_controls.pause();
+    }
+
+    function trackPlayed()
+    {
+        if(queueIndex >= queue.length)
+        {
+            queueIndex = 0;
+            if(audio_controls?.shuffle)
+                shuffle_queue();
+
+            changeTrack(queue[queueIndex]);
+        }
     }
 
     async function debugButton()
@@ -130,14 +184,12 @@
     </div>
 
     {#if state == Tab.SERVERS}
-        <ServerManagement 
+        <ServerManagement
             on:serveradded={server_added} 
-            on:serverupdated={(s) => console.log(s.detail)}
-            on:serverremoved={(s) => console.log(s.detail)}
-            bind:serverList={servers}>
+            on:serverupdated={(s) => console.log(s.detail)}>
         </ServerManagement>
     {:else if state == Tab.SONG}
-        <AudioTracks bind:current={song_current} bind:queue on:select={(s) => enqueueSong(s.detail)}></AudioTracks>
+        <AudioTracks bind:queueIndex bind:queue on:select={(s) => enqueueSong(s.detail)} on:clear={queueCleared}></AudioTracks>
     {:else}
         <NotImplemented></NotImplemented>
     {/if}
@@ -147,7 +199,7 @@
             bind:this={audio_controls}
             bind:song={song_current}
             on:pause={() => console.log("pause")} 
-            on:play={() => console.log("play")}
+            on:play={() => trackPlayed()}
             on:ended={() => trackEnded()}
             on:next={() => trackNext()}>
         </AudioControls>
