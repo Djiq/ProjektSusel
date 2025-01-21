@@ -16,6 +16,7 @@
     export let repeat = false;
 
     $: source = convertFileSrc(song.path);
+    $: if(audio) audio.volume = volume;
 
     const dispatch = createEventDispatcher();
 
@@ -178,7 +179,6 @@
         bind:duration
         bind:currentTime
         {muted}
-        {volume}
         on:play|preventDefault
         src={source}
         {preload}
@@ -188,99 +188,105 @@
 {/if}
 
 <style>
-    .audio-controls-buttons {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.75rem;
-        margin: 7px 0 7px 0;
+.audio-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.audio-controls-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin: 7px 0 7px 0;
+}
+
+button {
+    font-size: 1.5rem;
+    border-radius: 99em;
+    padding: 0;
+    border: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    place-items: center;
+    cursor: pointer;
+    width: 3.5rem;
+    height: 2.5rem;
+    transition: color 0.15s ease, width 0.25s ease-out;
+    position: relative;
+    background-color: var(--color-dp08);
+    color:white;
+    border: 1px solid var(--color-dp12);
+
+    &:hover {
+        background-color: var(--color-dp24);
+        border: 1px solid var(--color-dp18);
     }
+}
 
-    button {
-        font-size: 1.5rem;
-        border-radius: 99em;
-        padding: 0;
-        border: 0;
-        display: grid;
-        grid-template-columns: 1fr;
-        place-items: center;
-        cursor: pointer;
-        width: 3.5rem;
-        height: 2.5rem;
-        transition: color 0.15s ease, width 0.25s ease-out;
-        position: relative;
-        background-color: var(--color-dp08);
-        color:white;
-        border: 1px solid var(--color-dp12);
+button.active {
+    border: 2px solid var(--color-dp48);
+}
 
-        &:hover {
-            background-color: var(--color-dp24);
-            border: 1px solid var(--color-dp18);
-        }
-    }
+.tooltip 
+{
+    background-color: white;
+    padding: 1px;
+    border-radius: 5px;
+    border-width: 3px;
+    color: red;
+    pointer-events: none;
+    min-width: 50px;
+    text-align: center;
+    margin-bottom: 5px;
+}
 
-    button.active {
-        border: 2px solid var(--color-dp48);
-    }
+.hover-tooltip
+{
+    position: absolute;
+    top: var(--top);
+    left: var(--left);
+}
 
-    .tooltip 
-    {
-        background-color: white;
-        padding: 1px;
-        border-radius: 5px;
-        border-width: 3px;
-        color: red;
-        pointer-events: none;
-        min-width: 50px;
-        text-align: center;
-        margin-bottom: 5px;
-    }
+.progress-container 
+{
+    display: flex;
+    align-items: baseline;
+}
 
-    .hover-tooltip
-    {
-        position: absolute;
-        top: var(--top);
-        left: var(--left);
-    }
+progress 
+{
+    min-width: 50vw;
+    color: var(--color-dp24);
+    background: var(--color-dp24);
+    border: none;
+    border-radius: 50%;
+    height: 10px;
+    margin: 0 0.3em 0 0.3em;
+    border: 1px solid var(--color-dp24);
+    border-radius: 15px;
+}
 
-    .progress-container 
-    {
-        display: flex;
-        align-items: baseline;
-    }
+.scrolling-marquee {
+    white-space: nowrap;
+    overflow: hidden;
+    box-sizing: border-box;
+    width: 100%;
+}
 
-    progress 
-    {
-        min-width: 50vw;
-        color: var(--color-dp24);
-        background: var(--color-dp24);
-        border: none;
-        border-radius: 50%;
-        height: 10px;
-        margin: 0 0.3em 0 0.3em;
-        border: 1px solid var(--color-dp24);
-        border-radius: 15px;
-    }
-    
-    .scrolling-marquee {
-        white-space: nowrap;
-        overflow: hidden;
-        box-sizing: border-box;
-        max-width: 30em;
-    }
+.scrolling-marquee p {
+    display: inline-block;
+    padding-left: 100%;
+    animation: marquee 10s linear infinite;
+}
 
-    .scrolling-marquee p {
-        display: inline-block;
-        padding-left: 100%;
-        animation: marquee 10s linear infinite;
-    }
+@keyframes marquee {
+    0% { transform: translate(0, 0); }
+    100% {transform: translate(-100%, 0);}
+}
 
-    @keyframes marquee {
-        0% { transform: translate(0, 0); }
-        100% {transform: translate(-100%, 0);}
-    }
+progress::-webkit-progress-bar {background-color: var(--color-dp04); width: 100%; border-radius: 15px;}
 
-    progress::-webkit-progress-bar {background-color: var(--color-dp04); width: 100%; border-radius: 15px;}
-
-    progress::-webkit-progress-value { background: color-mix(in srgb, #121212, white 75%);; border-radius: 15px; }
+progress::-webkit-progress-value { background: color-mix(in srgb, #121212, white 75%);; border-radius: 15px; }
 </style>
