@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 use std::collections::HashMap;
-use std::net::IpAddr;
 
 lazy_static! {
     pub static ref SONGDB: AsyncDataHandler<SongDatabase> = unwrap_or_log_and_panic!(AsyncDataHandler::new("songindex.json"));
@@ -77,11 +76,7 @@ impl PlayerState{
 
 impl ServerDatabase{
     pub fn add_server(&mut self, name: String, ip: String) -> Result<(), std::net::AddrParseError>{
-        let adress:IpAddr = match ip.parse::<IpAddr>(){
-            Ok(result) => result,
-            Err(err) => return Err(err),
-        };
-        let serv= Server::new(adress,name);
+        let serv= Server::new(ip,name);
         match self.servers.binary_search(&serv) {
             Ok(_) => {} 
             Err(pos) => self.servers.insert(pos, serv),
@@ -89,11 +84,7 @@ impl ServerDatabase{
         Ok(())
     }
     pub fn modify_server(&mut self, old_name: String, name: String, ip: String) -> Result<(), std::net::AddrParseError>{
-        let adress:IpAddr = match ip.parse::<IpAddr>(){
-            Ok(result) => result,
-            Err(err) => return Err(err),
-        };
-        let serv= Server::new(adress,name);
+        let serv= Server::new(ip,name);
         match self.servers.binary_search_by_key(&old_name,|s| s.name.clone()) {
             Ok(pos) => self.servers[pos] = serv,
             Err(_) => log::error!("No such server found!"),
@@ -173,11 +164,11 @@ impl Playlist{
 #[derive(Debug, Deserialize, Serialize, Ord, PartialOrd, PartialEq, Eq, Clone)]
 pub struct Server{
     pub name: String,
-    pub ip: IpAddr,
+    pub ip: String,
 }
 
 impl Server{
-    pub fn new<A: Into<String>>(ip: IpAddr, name: A)->Self{
+    pub fn new<A: Into<String>>(ip: String, name: A)->Self{
         Server{ip, name:name.into()}
     }
 }
