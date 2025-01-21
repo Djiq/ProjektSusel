@@ -1,14 +1,22 @@
+<svelte:options accessors/>
 <script lang="ts">
-    import { createEventDispatcher, onMount } from "svelte";
+    import { createEventDispatcher, onMount, tick } from "svelte";
+    import { convertFileSrc, invoke } from "@tauri-apps/api/core";
     import { fade } from "svelte/transition";
 
-    export let src;
+    export let song : Song;
     export let audio : HTMLAudioElement|null = null;
     export let paused = true;
     export let duration = 0;
     export let volume = 1;
     export let muted = false;
     export let preload = "metadata";
+
+    export let shuffle = false;
+    export let repeat = false;
+
+    $: source = convertFileSrc(song.path);
+    $: if(audio) audio.volume = volume;
 
     const dispatch = createEventDispatcher();
 
@@ -23,6 +31,23 @@
     let tooltip : HTMLDivElement;
 
     let currentTime = 0;
+
+    export async function play()
+    {
+        audio?.play();
+    }
+
+    export async function pause()
+    {
+        audio?.pause();
+    }
+
+    export async function rewind()
+    {
+        dispatch("rewind");
+        if(audio != null) 
+            audio.currentTime = 0;
+    }
 
     function seek(event : any, bounds : any) 
     {
@@ -71,14 +96,23 @@
 />
 
 <div class="audio-controls">
+    <div class="scrolling-marquee">
+        {#if song.songid != 0}
+            <p>
+                Now playing: {song.name} {#if song.author} by {song.author} {/if}
+            </p>
+        {:else}
+            <p>Add songs to queue to start playing</p>
+        {/if}
+    </div>
     <div class="audio-controls-buttons">
-        <button on:click={() => dispatch("shuffle")}>
+        <button class:active={shuffle} on:click={() => {dispatch("shuffle"); shuffle = !shuffle;}}>
             <svg class="w-[48px] h-[48px] text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.484 9.166 15 7h5m0 0-3-3m3 3-3 3M4 17h4l1.577-2.253M4 7h4l7 10h5m0 0-3 3m3-3-3-3"/>
             </svg>
         </button>
 
-        <button on:click={() => {dispatch("rewind"); if(audio != null) audio.currentTime = 0;}}>
+        <button on:click={() => {rewind}}>
             <svg class="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m17 16-4-4 4-4m-6 8-4-4 4-4"/>
               </svg>              
@@ -102,7 +136,7 @@
             </svg>              
         </button>
 
-        <button on:click={() => dispatch("looping")}>
+        <button class:active={repeat} on:click={() => {dispatch("repeat"); repeat = !repeat;}}>
             <svg class="w-[48px] h-[48px] text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m16 10 3-3m0 0-3-3m3 3H5v3m3 4-3 3m0 0 3 3m-3-3h14v-3"/>
             </svg>
@@ -138,92 +172,121 @@
     </div>
 {/if}
 
-<audio
-    bind:this={audio}
-    bind:paused
-    bind:duration
-    bind:currentTime
-    {muted}
-    {volume}
-    on:play|preventDefault
-    {src}
-    {preload}
-    on:pause
-    on:ended={() => {currentTime = 0; dispatch("ended");}}
-></audio>
+{#if song.path != ""}
+    <audio
+        bind:this={audio}
+        bind:paused
+        bind:duration
+        bind:currentTime
+        {muted}
+        on:play|preventDefault
+        src={source}
+        {preload}
+        on:pause
+        on:ended={() => {currentTime = 0; dispatch("ended");}}
+    ></audio>
+{/if}
 
 <style>
-    .audio-controls-buttons {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.75rem;
-        margin-bottom: 15px;
+.audio-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.audio-controls-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin: 7px 0 7px 0;
+}
+
+button {
+    font-size: 1.5rem;
+    border-radius: 99em;
+    padding: 0;
+    border: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    place-items: center;
+    cursor: pointer;
+    width: 3.5rem;
+    height: 2.5rem;
+    transition: color 0.15s ease, width 0.25s ease-out;
+    position: relative;
+    background-color: var(--color-dp08);
+    color:white;
+    border: 1px solid var(--color-dp12);
+
+    &:hover {
+        background-color: var(--color-dp24);
+        border: 1px solid var(--color-dp18);
     }
+}
 
-    button {
-        font-size: 1.5rem;
-        border-radius: 99em;
-        padding: 0;
-        border: 0;
-        display: grid;
-        grid-template-columns: 1fr;
-        place-items: center;
-        cursor: pointer;
-        width: 3.5rem;
-        height: 2.5rem;
-        transition: color 0.15s ease, width 0.25s ease-out;
-        position: relative;
-        background-color: var(--color-dp08);
-        color:white;
-        border: 1px solid var(--color-dp12);
+button.active {
+    border: 2px solid var(--color-dp48);
+}
 
-        &:hover {
-            background-color: var(--color-dp24);
-            border: 1px solid var(--color-dp18);
-        }
-    }
+.tooltip 
+{
+    background-color: white;
+    padding: 1px;
+    border-radius: 5px;
+    border-width: 3px;
+    color: red;
+    pointer-events: none;
+    min-width: 50px;
+    text-align: center;
+    margin-bottom: 5px;
+}
 
-    .tooltip 
-    {
-        background-color: white;
-        padding: 1px;
-        border-radius: 5px;
-        border-width: 3px;
-        color: red;
-        pointer-events: none;
-        min-width: 50px;
-        text-align: center;
-        margin-bottom: 5px;
-    }
+.hover-tooltip
+{
+    position: absolute;
+    top: var(--top);
+    left: var(--left);
+}
 
-    .hover-tooltip
-    {
-        position: absolute;
-        top: var(--top);
-        left: var(--left);
-    }
+.progress-container 
+{
+    display: flex;
+    align-items: baseline;
+}
 
-    .progress-container 
-    {
-        display: flex;
-        align-items: baseline;
-    }
+progress 
+{
+    min-width: 50vw;
+    color: var(--color-dp24);
+    background: var(--color-dp24);
+    border: none;
+    border-radius: 50%;
+    height: 10px;
+    margin: 0 0.3em 0 0.3em;
+    border: 1px solid var(--color-dp24);
+    border-radius: 15px;
+}
 
-    progress 
-    {
-        min-width: 50vw;
-        color: var(--color-dp24);
-        background: var(--color-dp24);
-        border: none;
-        border-radius: 50%;
-        height: 10px;
-        margin: 0 0.3em 0 0.3em;
-        border: 1px solid var(--color-dp24);
-        border-radius: 15px;
-    }
-    
-    progress::-webkit-progress-bar {background-color: var(--color-dp04); width: 100%; border-radius: 15px;}
+.scrolling-marquee {
+    white-space: nowrap;
+    overflow: hidden;
+    box-sizing: border-box;
+    width: 100%;
+}
 
-    progress::-webkit-progress-value { background: color-mix(in srgb, #121212, white 75%);; border-radius: 15px; }
+.scrolling-marquee p {
+    display: inline-block;
+    padding-left: 100%;
+    animation: marquee 10s linear infinite;
+}
+
+@keyframes marquee {
+    0% { transform: translate(0, 0); }
+    100% {transform: translate(-100%, 0);}
+}
+
+progress::-webkit-progress-bar {background-color: var(--color-dp04); width: 100%; border-radius: 15px;}
+
+progress::-webkit-progress-value { background: color-mix(in srgb, #121212, white 75%);; border-radius: 15px; }
 </style>

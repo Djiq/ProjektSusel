@@ -42,8 +42,12 @@ pub fn cmd_download(servername: String, songname: String) -> Result<String, &'st
     );
 
     let bytes = cursor.into_inner();
-    let config = get_config()?;
-    _ = config.join(&songname);
+    let mut config = get_config()?;
+    // _ = config.join(&songname);
+    config.push(&songname);
+
+    println!("{}", config.display());
+
     let mut file = unwrap_or_err!(
         File::create(config.clone()),
         "Couldn't create song file"
